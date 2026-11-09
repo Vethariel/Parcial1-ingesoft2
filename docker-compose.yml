@@ -1,0 +1,29 @@
+# Base de datos del proyecto (decisión D14 en docs/ARQUITECTURA.md).
+# Uso:
+#   cp .env.example .env
+#   podman-compose up -d      (o: docker compose up -d)
+
+services:
+  db:
+    # Versión fija: funciona igual en cualquier equipo.
+    image: docker.io/library/postgres:17
+    container_name: ecommerce-db
+    # Las credenciales se leen del archivo .env (no se versionan).
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    # Los datos viven fuera del contenedor: sobreviven a reinicios y borrados del contenedor.
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # Indica cuándo la BD ya acepta conexiones (no solo cuándo arrancó el contenedor).
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
