@@ -12,7 +12,29 @@ Tú escribes el código; yo tomo las decisiones.
 
 - Backend: NestJS (TypeScript) + Prisma + PostgreSQL
 - Frontend: React + Vite (TypeScript)
-- Pruebas: Jest
+- Pruebas: Vitest
+
+## Notas de NestJS 12
+
+- La versión de NestJS (12) puede ser más nueva que lo que conoce el asistente.
+  Documentación indexada: https://docs.nestjs.com/llms.txt (una página
+  markdown por capítulo).
+- El proyecto es ESM: los imports relativos terminan en `.js`, no existe
+  `__dirname` (usar `import.meta.dirname`) y las pruebas usan Vitest
+  (`vi.fn()`, no `jest.fn()`).
+- Antes de agregar una librería o escribir algo propio, revisar si existe un
+  paquete oficial de Nest: config (`@nestjs/config`), tareas programadas
+  (`@nestjs/schedule`), autenticación (`@nestjs/authentication`), permisos
+  (`@nestjs/authorization`), rate limiting (`@nestjs/throttler`),
+  idempotencia (`@nestjs/idempotency`), OpenAPI (`@nestjs/swagger`), entre
+  otros. Usarlo solo si respeta el principio "explícito sobre implícito"
+  (docs/ARQUITECTURA.md §1); la lógica de negocio crítica no se delega a
+  una caja negra.
+- Validación: funciona con Zod/Valibot/ArkType (Standard Schema) mediante
+  `StandardSchemaValidationPipe`, o con `class-validator` mediante
+  `ValidationPipe`.
+- npm 10.9.x tiene un bug al instalar las dependencias de esta plantilla
+  (`Cannot read properties of null (reading 'edgesOut')`). Usar npm >= 11.
 
 # Arquitectura
 

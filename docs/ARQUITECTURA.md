@@ -170,6 +170,7 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 
 | D13 | **Transacción explícita como parámetro**: `TransactionRunner.ejecutar(tx => ...)` y un tipo propio opaco `Transaccion` que los services pasan sin abrir | Se ve en el código qué está dentro de la transacción; si falta `tx`, no compila. El contrato de los repositorios no menciona Prisma: solo la implementación sabe qué hay dentro de `Transaccion` | Transacción "ambiental" (`nestjs-cls` + `@Transactional`): firmas más limpias, pero es una caja negra y falla en silencio |
 | D14 | **PostgreSQL en contenedor** (`docker-compose`) | La configuración de la BD (versión, credenciales, puerto) queda versionada en el proyecto y cualquiera la levanta igual con un comando | `dnf` (configuración solo en el equipo local) o nube (dependencia de internet en la sustentación) |
+| D15 | **NestJS 12 con Vitest** (ESM) | Versión actual del framework; la plantilla oficial trae Vitest, el linter oxlint y TypeScript estricto | NestJS 11 con Jest: más documentación disponible, pero es la versión anterior |
 
 ---
 
