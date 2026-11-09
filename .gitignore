@@ -1,0 +1,21 @@
+# Dependencias
+node_modules/
+
+# Builds y reportes
+dist/
+build/
+coverage/
+
+# Variables de entorno (contienen credenciales; se versiona solo .env.example)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor y sistema operativo
+.vscode/
+.idea/
+.DS_Store

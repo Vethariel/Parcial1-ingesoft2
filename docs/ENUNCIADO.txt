@@ -1,0 +1,26 @@
+[FullStack] E-commerce Simplificado con Checkout
+  Descripción
+Es una tienda online básica diseñada para ofrecer una experiencia de compra sencilla. Incluye
+un carrito de compras que permite seleccionar múltiples productos antes de comprar. El flujo de
+compra es intuitivo, facilitando la navegación desde la selección de productos hasta el pago.
+
+  Requisitos:
+Los requisitos esenciales para el funcionamiento de la tienda online son:
+  Un sistema de autenticación y gestión de usuarios que permita crear cuentas, iniciar sesión y
+  gestionar información personal de forma segura.
+  Funcionalidad CRUD para la gestión de productos, control de stock y manejo de órdenes,
+  asegurando que los administradores gestionen eficientemente el inventario y pedidos.
+  Un flujo de carrito de compras y proceso de checkout funcional que garantice una
+  experiencia de usuario fluida.
+  Validaciones exhaustivas para asegurar la disponibilidad del stock y la correcta gestión de
+  pagos, minimizando errores y mejorando la confianza del cliente.
+  Una interfaz clara y atractiva para la visualización de productos y detalles, permitiendo
+  decisiones informadas al comprar.
+
+  Evaluación
+La evaluación se llevará a cabo considerando los siguientes aspectos:
+  Buenas prácticas de desarrollo
+  Implementación de los principios SOLID y DRY
+  Sustentación
+  Pruebas unitarias (opcional)
+
