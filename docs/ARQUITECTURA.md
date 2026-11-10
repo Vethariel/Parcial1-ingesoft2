@@ -185,6 +185,9 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D24 | **`PrismaModule` global** (`@Global()`) | DRY: se registra una vez en `AppModule`. La dependencia sigue visible en el constructor de cada repositorio | Importación explícita en cada módulo |
 | D25 | **Fallo rápido al arrancar**: `env.ts` exige las variables obligatorias y `PrismaService` hace `SELECT 1` al iniciar | Un error de configuración o de BD se detecta al arrancar, no en la primera petición de un cliente. (Con el adaptador `pg`, `$connect()` no abre una conexión real) | Confiar en `$connect()` |
 | D26 | **Identificadores de código en inglés, comentarios y documentación en español** | Consistencia con los modelos, módulos y librerías (todo en inglés); las explicaciones en el idioma del equipo | Todo en español |
+| D27 | **Tipos propios del dominio** en los contratos (`users/user.types.ts`, etc.); el repositorio Prisma traduce con `toDomain()` | Coherente con D13: Prisma no aparece en interfaces ni services. El tipo describe lo que el negocio necesita, no cómo se guarda (p. ej. sin `updatedAt`) | Usar los tipos generados por Prisma: una sola definición, pero acopla los contratos a Prisma |
+| D28 | **Errores del dominio** (`EmailAlreadyRegisteredError`, etc.); el repositorio traduce los errores de Prisma y el controller los traduce a HTTP | Cada capa habla su idioma: el service no conoce códigos de Prisma (`P2002`) ni de HTTP (`409`) | Lanzar excepciones HTTP desde services o repositorios |
+| D29 | **Cada módulo exporta solo su service**, nunca su repositorio | El repositorio es un detalle interno; los demás módulos piden lo que necesitan al service (encapsulamiento) | Exportar el repositorio para que otros módulos lo usen directamente |
 
 ---
 
