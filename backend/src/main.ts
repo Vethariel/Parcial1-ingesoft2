@@ -1,3 +1,5 @@
+// Primero: configura Zod (mensajes en español) antes de cargar los esquemas.
+import './config/zod.js';
 import { StandardSchemaValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';

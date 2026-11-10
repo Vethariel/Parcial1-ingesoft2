@@ -9,7 +9,7 @@ import { expand } from 'dotenv-expand';
 expand(loadEnv({ path: '../.env', quiet: true }));
 
 /** Falla al arrancar si falta una variable obligatoria, diciendo cuál. */
-function required(name: string): string {
+export function required(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Falta la variable de entorno obligatoria: ${name}`);
