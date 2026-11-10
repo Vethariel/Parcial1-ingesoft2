@@ -12,7 +12,8 @@ import type {
   LoginInput,
   RegisterInput,
 } from './auth.schemas.js';
-import type { AuthResult, TokenPayload } from './auth.types.js';
+import type { TokenPayload } from '../security/security.types.js';
+import type { AuthResult } from './auth.types.js';
 import { PASSWORD_HASHER, type PasswordHasher } from './password-hasher.js';
 
 /**

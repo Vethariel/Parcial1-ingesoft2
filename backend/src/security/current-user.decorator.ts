@@ -1,5 +1,8 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { AuthenticatedRequest, AuthenticatedUser } from './auth.types.js';
+import type {
+  AuthenticatedRequest,
+  AuthenticatedUser,
+} from './security.types.js';
 
 /**
  * Entrega al controller el usuario que dejó JwtGuard en request.user:

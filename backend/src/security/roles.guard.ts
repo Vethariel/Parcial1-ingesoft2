@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { AuthenticatedRequest } from './auth.types.js';
+import type { AuthenticatedRequest } from './security.types.js';
 import { Roles } from './roles.decorator.js';
 
 /**

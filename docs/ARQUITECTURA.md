@@ -63,7 +63,8 @@ Los casos en **negrita** tocan varios grupos (paso 5 del método), y por eso los
 
 | Módulo | Responsabilidad | Piezas principales (planeadas) | Depende de |
 |---|---|---|---|
-| **auth** | **Credenciales**: registro, login, cambio de contraseña, hash, emisión y verificación de tokens, guards de rol | `AuthController`, `AuthService`, `PasswordHasher` (interfaz) + `BcryptPasswordHasher`, `JwtGuard`, `RolesGuard`, `@Roles`, `@CurrentUser` | users |
+| **auth** | **Credenciales**: registro, login, cambio de contraseña, hash, emisión de tokens | `AuthController`, `AuthService`, `PasswordHasher` (interfaz) + `BcryptPasswordHasher` | users, security |
+| **security** | **Control de acceso** ("el portero"): configuración del JWT, verificación de tokens y roles. No conoce la base de usuarios | `SecurityModule`, `JwtGuard`, `RolesGuard`, `@Roles`, `@CurrentUser` | — |
 | **users** | **Datos de la persona**: guardar y leer usuarios, perfil (nombre, dirección). No conoce bcrypt | `UsersController`, `UsersService`, `UserRepository` | — |
 | **categories** | CRUD de categorías | `CategoriesController`, `CategoriesService`, `CategoryRepository` | — |
 | **products** | Catálogo público, CRUD de admin, soft delete, **stock** | `ProductsController`, `ProductsService`, `StockService`, `ProductRepository` | categories |
@@ -94,7 +95,10 @@ expirations
                      ▼
                 categories
 
-auth ──▶ users          (los guards de auth los usan todos los módulos)
+auth ──▶ users
+  │        │
+  ▼        ▼
+ security  ◀── products, cart, orders, checkout   (todo módulo con endpoints protegidos)
 ```
 
 - Las flechas van en una sola dirección y **no hay ciclos**.
@@ -195,6 +199,7 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D33 | **Validación de forma con Zod** (`*.schemas.ts` + `StandardSchemaValidationPipe` global); las reglas de negocio quedan en los services | El tipo se deriva del esquema (una sola definición); permite transformar (normalizar el correo) y podría compartirse con el frontend | `class-validator` + `class-transformer` |
 | D34 | **Login sin pistas para atacantes**: el mismo mensaje y el mismo tiempo de respuesta si el correo no existe o si la contraseña es incorrecta | No revelar qué correos están registrados, ni por el mensaje ni midiendo tiempos | Mensajes distintos ("correo no existe" / "contraseña incorrecta") |
 | D35 | **El registro público siempre crea `CUSTOMER`**; los admin se crean con un **seed** | Si el registro aceptara un rol, cualquiera podría hacerse admin. El seed además deja lista la demo | Promover admins con SQL manual |
+| D36 | **Módulo `security` separado de `auth`**: guards, decoradores y configuración del JWT | El control de acceso no necesita la base de usuarios. Separado, cualquier módulo (incluido `users`) puede usar los guards sin crear el ciclo `auth ⇄ users` (S de SOLID aplicada a módulos) | Perfil en `auth` (mezcla datos personales con credenciales); `forwardRef()` (tolera el ciclo en lugar de resolverlo) |
 
 ---
 

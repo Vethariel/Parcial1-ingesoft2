@@ -23,9 +23,10 @@ import {
   registerSchema,
 } from './auth.schemas.js';
 import { AuthService } from './auth.service.js';
-import type { AuthResult, AuthenticatedUser } from './auth.types.js';
-import { CurrentUser } from './current-user.decorator.js';
-import { JwtGuard } from './jwt.guard.js';
+import { CurrentUser } from '../security/current-user.decorator.js';
+import { JwtGuard } from '../security/jwt.guard.js';
+import type { AuthenticatedUser } from '../security/security.types.js';
+import type { AuthResult } from './auth.types.js';
 
 /**
  * El mesero de auth: valida la forma (Zod), delega al service y traduce los

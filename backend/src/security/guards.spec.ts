@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import type { AuthenticatedRequest } from './auth.types.js';
+import type { AuthenticatedRequest } from './security.types.js';
 import { JwtGuard } from './jwt.guard.js';
 import type { Role } from '../users/user.types.js';
 import { RolesGuard } from './roles.guard.js';

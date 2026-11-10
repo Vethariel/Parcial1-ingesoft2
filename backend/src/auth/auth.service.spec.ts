@@ -7,7 +7,7 @@ import {
   WrongCurrentPasswordError,
 } from './auth.errors.js';
 import { AuthService } from './auth.service.js';
-import type { TokenPayload } from './auth.types.js';
+import type { TokenPayload } from '../security/security.types.js';
 import type { PasswordHasher } from './password-hasher.js';
 
 // ─── Piezas falsas ───────────────────────────────────────────────────────

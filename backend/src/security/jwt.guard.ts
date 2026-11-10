@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { AuthenticatedRequest, TokenPayload } from './auth.types.js';
+import type { AuthenticatedRequest, TokenPayload } from './security.types.js';
 
 /**
  * ¿Quién eres? Verifica el token del header `Authorization: Bearer <token>`
