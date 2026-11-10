@@ -200,6 +200,7 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D34 | **Login sin pistas para atacantes**: el mismo mensaje y el mismo tiempo de respuesta si el correo no existe o si la contraseña es incorrecta | No revelar qué correos están registrados, ni por el mensaje ni midiendo tiempos | Mensajes distintos ("correo no existe" / "contraseña incorrecta") |
 | D35 | **El registro público siempre crea `CUSTOMER`**; los admin se crean con un **seed** | Si el registro aceptara un rol, cualquiera podría hacerse admin. El seed además deja lista la demo | Promover admins con SQL manual |
 | D36 | **Módulo `security` separado de `auth`**: guards, decoradores y configuración del JWT | El control de acceso no necesita la base de usuarios. Separado, cualquier módulo (incluido `users`) puede usar los guards sin crear el ciclo `auth ⇄ users` (S de SOLID aplicada a módulos) | Perfil en `auth` (mezcla datos personales con credenciales); `forwardRef()` (tolera el ciclo en lugar de resolverlo) |
+| D37 | **Endpoints `/users/me`**: el id del usuario sale siempre del token (`@CurrentUser`), nunca de la URL ni del cuerpo. El perfil se edita con PATCH parcial (al menos un campo); la dirección se puede cambiar pero no borrar | Nadie puede leer ni editar el perfil de otro, porque no hay forma de indicar "otro". La dirección es obligatoria para comprar (§6) | `/users/:id` con verificación de que `:id` sea el del token (más superficie de error) |
 
 ---
 

@@ -13,6 +13,12 @@ export type User = {
   role: Role;
 };
 
+/** Campos del perfil que el propio usuario puede cambiar. */
+export type ProfileChanges = {
+  name?: string;
+  address?: string;
+};
+
 /** Datos para crear un usuario. El rol lo decide quien llama, nunca el cliente. */
 export type NewUser = {
   name: string;
