@@ -157,7 +157,9 @@ Usuario ──1:1── Carrito ──1:N── ItemCarrito ──N:1── Prod
 - **Soft delete de productos** (`activo = false`): no se pierde el historial de órdenes. El catálogo solo muestra activos y la confirmación rechaza productos inactivos.
 - **Snapshot en la orden** (precio, nombre, total, dirección): la orden es un registro histórico inmutable. Si después cambian el producto o el perfil, la orden no cambia.
 - **Total guardado** (desnormalización justificada): se calcula una vez en el servidor al crear la orden y nunca cambia, así que no puede desincronizarse del detalle.
-- **Montos como `Decimal`** (o enteros en centavos), nunca `float`.
+- **Montos como `Decimal(12,2)`**, nunca `float`.
+- **Identificadores UUID.**
+- La regla "máximo 1 orden abierta por usuario" la **garantiza la BD** con un índice único parcial (ver ARQUITECTURA.md D19).
 - **Varios cobros por orden, máximo 1 exitoso:** cada reintento es un cobro nuevo y la idempotencia garantiza que no haya dos cobros exitosos.
 
 ## 10. Pendiente de decidir (fase de diseño)

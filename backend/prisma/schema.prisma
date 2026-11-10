@@ -1,0 +1,192 @@
+// Modelo de datos. Traducción de docs/SUPUESTOS.md §9.
+// Los nombres de tabla se mapean a minúsculas en plural (@@map) para que el
+// SQL escrito a mano (p. ej. SELECT ... FOR UPDATE) sea más legible.
+//
+// Reglas que schema.prisma NO puede expresar y se agregan a mano en el SQL
+// de la migración inicial:
+//   - CHECK: stock >= 0, cantidades > 0, montos >= 0
+//   - Índice único parcial: máximo 1 orden PENDING/PROCESSING por usuario
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // La URL se configura en prisma.config.ts (Prisma 7).
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+// SUPUESTOS §6: PENDING ⇄ PROCESSING → PAID → SHIPPED, o CANCELLED
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  SHIPPED
+  CANCELLED
+}
+
+// Ciclo de un cobro: se registra antes de llamar a la pasarela (PENDING)
+// y luego se marca con el resultado.
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// ─── Usuarios ────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  // Opcional al registrarse; obligatoria para confirmar una compra (§6).
+  address      String?
+  passwordHash String
+  role         Role     @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cart   Cart?
+  orders Order[]
+
+  @@map("users")
+}
+
+// ─── Catálogo ────────────────────────────────────────────────────────────
+
+model Category {
+  id       String    @id @default(uuid()) @db.Uuid
+  name     String    @unique
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String
+  imageUrl    String
+  price       Decimal  @db.Decimal(12, 2)
+  // Solo StockService modifica esta columna (D5).
+  stock       Int
+  // Soft delete: false = no aparece en el catálogo, pero el historial se conserva.
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Restrict: no se puede borrar una categoría con productos (activos o no).
+  categoryId String   @db.Uuid
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@map("products")
+}
+
+// ─── Carrito ─────────────────────────────────────────────────────────────
+
+model Cart {
+  id        String   @id @default(uuid()) @db.Uuid
+  // Fechas para analizar carritos abandonados (§9).
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Un carrito por usuario.
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id       String @id @default(uuid()) @db.Uuid
+  quantity Int
+
+  cartId    String  @db.Uuid
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  // Un mismo producto aparece una sola vez por carrito (se suma la cantidad).
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+// ─── Órdenes ─────────────────────────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(uuid()) @db.Uuid
+  status          OrderStatus @default(PENDING)
+  // Snapshot: se calcula una vez al crear la orden y no cambia (§9).
+  total           Decimal     @db.Decimal(12, 2)
+  // Snapshot de la dirección del perfil al momento de comprar.
+  shippingAddress String
+  // Base para la ventana de pago (5 min) y la liberación (10 min).
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([userId])
+  // Para el job de expiración: busca órdenes por estado y antigüedad.
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  // Snapshot: nombre y precio del producto al momento de comprar.
+  productName String
+  unitPrice   Decimal @db.Decimal(12, 2)
+  quantity    Int
+
+  orderId   String  @db.Uuid
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ─── Pagos ───────────────────────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  // Número de intento (1..3). Junto con orderId forma la clave de idempotencia (§8).
+  attempt           Int
+  amount            Decimal       @db.Decimal(12, 2)
+  method            String
+  status            PaymentStatus @default(PENDING)
+  // Id del cobro en la pasarela; necesario para reembolsar.
+  externalReference String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  orderId String @db.Uuid
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  // Un solo cobro por intento de cada orden.
+  @@unique([orderId, attempt])
+  @@map("payments")
+}

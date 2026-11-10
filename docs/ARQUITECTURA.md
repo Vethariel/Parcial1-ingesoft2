@@ -171,6 +171,13 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D13 | **Transacción explícita como parámetro**: `TransactionRunner.ejecutar(tx => ...)` y un tipo propio opaco `Transaccion` que los services pasan sin abrir | Se ve en el código qué está dentro de la transacción; si falta `tx`, no compila. El contrato de los repositorios no menciona Prisma: solo la implementación sabe qué hay dentro de `Transaccion` | Transacción "ambiental" (`nestjs-cls` + `@Transactional`): firmas más limpias, pero es una caja negra y falla en silencio |
 | D14 | **PostgreSQL en contenedor** (`docker-compose`) | La configuración de la BD (versión, credenciales, puerto) queda versionada en el proyecto y cualquiera la levanta igual con un comando | `dnf` (configuración solo en el equipo local) o nube (dependencia de internet en la sustentación) |
 | D15 | **NestJS 12 con Vitest** (ESM) | Versión actual del framework; la plantilla oficial trae Vitest, el linter oxlint y TypeScript estricto | NestJS 11 con Jest: más documentación disponible, pero es la versión anterior |
+| D16 | **Prisma 7.10.1** (última estable) | La etiqueta `latest` de npm apuntaba a una versión candidata (8.0 RC); no se construye sobre algo que aún puede cambiar | Prisma 8 RC |
+| D17 | **Identificadores UUID** | No revelan el volumen del negocio ni se pueden adivinar | Autoincrementales: más legibles, pero exponen información (la seguridad de acceso igual la da la capa 1) |
+| D18 | **Montos como `Decimal(12,2)`** | Exactitud sin convertir unidades; se lee igual en la BD y en la interfaz | Enteros en centavos: operaciones más simples, pero hay que convertir al mostrar |
+| D19 | **Máximo 1 orden abierta por usuario con un índice único parcial** (`WHERE status IN ('PENDING','PROCESSING')`) | La regla vive en la BD: dos confirmaciones simultáneas no pueden crear dos órdenes abiertas (misma condición de carrera que el stock). Ningún código tiene que acordarse de verificarlo | Bloquear la fila del usuario con `FOR UPDATE`: depende de que todo código que cree órdenes lo haga |
+| D20 | **Reglas de la BD escritas a mano en la migración**: `CHECK` (stock ≥ 0, cantidades > 0, montos ≥ 0) e índice parcial | `schema.prisma` no puede expresarlas. Son la última defensa ante bugs del código | Validar solo en los services |
+| D21 | **El cobro se registra (`PENDING`) antes de llamar a la pasarela** | `UNIQUE(orderId, attempt)` aparta el número de intento, y queda el rastro para recuperar órdenes atascadas en `PROCESSING` | Registrar el cobro solo después de la respuesta de la pasarela |
+| D22 | **El cliente generado de Prisma no se versiona** | Se regenera desde el schema (`npx prisma generate`): una sola fuente de verdad | Versionar `src/generated/` |
 
 ---
 

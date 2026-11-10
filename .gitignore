@@ -22,3 +22,6 @@ npm-debug.log*
 
 # Compilación de TypeScript (temporal)
 *.tsbuildinfo
+
+# Cliente generado por Prisma (se regenera con: npx prisma generate)
+backend/src/generated/
