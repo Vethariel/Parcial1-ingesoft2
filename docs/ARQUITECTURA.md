@@ -71,8 +71,11 @@ Los casos en **negrita** tocan varios grupos (paso 5 del método), y por eso los
 | **payments** | Cobros y reembolsos; interfaz hacia la pasarela | `PaymentGateway` (interfaz), `MockPaymentGateway`, `PaymentRepository` | — |
 | **checkout** | **Coordina** confirmar, pagar y cancelar | `CheckoutController`, `CheckoutService` | cart, products, orders, payments |
 | **expirations** | Dispara la expiración periódica de órdenes | `ExpirationJob` (cron) | checkout |
-| **prisma** *(infra)* | Conexión a la BD | `PrismaService` | — |
-| **config** *(infra)* | Constantes de negocio en un solo lugar | Ventana de pago (5 min), liberación (10 min), máx. intentos (3), máx. órdenes pendientes (1), frecuencia del cron (1 min) | — |
+| **prisma** *(infra, global)* | Conexión única a la BD y transacciones | `PrismaService`, `PrismaTransactionRunner` (implementa `TransactionRunner`) | — |
+| **config** *(infra)* | Reglas de negocio y variables de entorno, cada una en un solo lugar | `business-rules.ts`: ventana de pago (5 min), gracia (5 min), liberación (= ventana + gracia), máx. intentos (3), frecuencia del cron (60 s). `env.ts`: `DATABASE_URL`, `PORT` | — |
+| **shared** | Contratos transversales | `transaction.ts`: tipo `Transaction` y la interfaz `TransactionRunner` | — |
+
+La regla "máximo 1 orden abierta por usuario" no es una constante: la garantiza un índice en la BD (D19).
 
 Cada `XRepository` es una **interfaz** con una implementación `PrismaXRepository`. Los services dependen de la interfaz, nunca de Prisma.
 
@@ -168,7 +171,7 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D11 | **Expiración por cron cada minuto** | Libera stock aunque nadie consulte la orden; una orden abandonada queda reservada como máximo ~11 min | Verificación perezosa: el stock quedaría bloqueado hasta que alguien consulte |
 | D12 | **El admin puede cancelar órdenes `PAID`** con reembolso. `SHIPPED` no es cancelable. Si el reembolso falla, la orden **no** se cancela | No se marca como cancelado algo cuyo dinero no se devolvió. Cancelar algo ya enviado es una devolución, que es otro proceso | Cancelar sin reembolso, o permitir cancelar `SHIPPED` |
 
-| D13 | **Transacción explícita como parámetro**: `TransactionRunner.ejecutar(tx => ...)` y un tipo propio opaco `Transaccion` que los services pasan sin abrir | Se ve en el código qué está dentro de la transacción; si falta `tx`, no compila. El contrato de los repositorios no menciona Prisma: solo la implementación sabe qué hay dentro de `Transaccion` | Transacción "ambiental" (`nestjs-cls` + `@Transactional`): firmas más limpias, pero es una caja negra y falla en silencio |
+| D13 | **Transacción explícita como parámetro**: `TransactionRunner.run(tx => ...)` y un tipo propio opaco `Transaction` (`src/shared/transaction.ts`) que los services pasan sin abrir. Solo los repositorios Prisma la "abren" con `asPrismaTransaction(tx)` | Se ve en el código qué está dentro de la transacción; si falta `tx`, no compila. El contrato de los repositorios no menciona Prisma: solo la implementación sabe qué hay dentro de `Transaccion` | Transacción "ambiental" (`nestjs-cls` + `@Transactional`): firmas más limpias, pero es una caja negra y falla en silencio |
 | D14 | **PostgreSQL en contenedor** (`docker-compose`) | La configuración de la BD (versión, credenciales, puerto) queda versionada en el proyecto y cualquiera la levanta igual con un comando | `dnf` (configuración solo en el equipo local) o nube (dependencia de internet en la sustentación) |
 | D15 | **NestJS 12 con Vitest** (ESM) | Versión actual del framework; la plantilla oficial trae Vitest, el linter oxlint y TypeScript estricto | NestJS 11 con Jest: más documentación disponible, pero es la versión anterior |
 | D16 | **Prisma 7.10.1** (última estable) | La etiqueta `latest` de npm apuntaba a una versión candidata (8.0 RC); no se construye sobre algo que aún puede cambiar | Prisma 8 RC |
@@ -178,6 +181,10 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D20 | **Reglas de la BD escritas a mano en la migración**: `CHECK` (stock ≥ 0, cantidades > 0, montos ≥ 0) e índice parcial | `schema.prisma` no puede expresarlas. Son la última defensa ante bugs del código | Validar solo en los services |
 | D21 | **El cobro se registra (`PENDING`) antes de llamar a la pasarela** | `UNIQUE(orderId, attempt)` aparta el número de intento, y queda el rastro para recuperar órdenes atascadas en `PROCESSING` | Registrar el cobro solo después de la respuesta de la pasarela |
 | D22 | **El cliente generado de Prisma no se versiona** | Se regenera desde el schema (`npx prisma generate`): una sola fuente de verdad | Versionar `src/generated/` |
+| D23 | **Reglas de negocio como constantes en código** (`src/config/business-rules.ts`); el `.env` solo para lo que depende del entorno | Las reglas son iguales en todos los entornos; cambiarlas pasa por un commit y una revisión. Las relaciones entre reglas quedan escritas (`RELEASE = WINDOW + GRACE`) | Reglas en el `.env`: cada entorno podría tener reglas distintas sin que nadie lo note |
+| D24 | **`PrismaModule` global** (`@Global()`) | DRY: se registra una vez en `AppModule`. La dependencia sigue visible en el constructor de cada repositorio | Importación explícita en cada módulo |
+| D25 | **Fallo rápido al arrancar**: `env.ts` exige las variables obligatorias y `PrismaService` hace `SELECT 1` al iniciar | Un error de configuración o de BD se detecta al arrancar, no en la primera petición de un cliente. (Con el adaptador `pg`, `$connect()` no abre una conexión real) | Confiar en `$connect()` |
+| D26 | **Identificadores de código en inglés, comentarios y documentación en español** | Consistencia con los modelos, módulos y librerías (todo en inglés); las explicaciones en el idioma del equipo | Todo en español |
 
 ---
 
