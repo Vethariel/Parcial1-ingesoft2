@@ -9,6 +9,7 @@ export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
   /** @throws EmailAlreadyRegisteredError si el correo ya existe. */
   create(data: NewUser): Promise<User>;
+  updatePasswordHash(id: string, passwordHash: string): Promise<void>;
 }
 
 /** Token de inyección: las interfaces no existen en tiempo de ejecución. */

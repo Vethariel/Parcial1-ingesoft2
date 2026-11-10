@@ -19,5 +19,7 @@ function required(name: string): string {
 
 export const env = {
   databaseUrl: required('DATABASE_URL'),
+  /** Clave con la que el servidor firma y verifica los JWT. Nunca se versiona. */
+  jwtSecret: required('JWT_SECRET'),
   port: Number(process.env.PORT ?? 3000),
 } as const;

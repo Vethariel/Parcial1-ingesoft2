@@ -25,4 +25,9 @@ export class UsersService {
   create(data: NewUser): Promise<User> {
     return this.users.create(data);
   }
+
+  /** Recibe el hash ya calculado: users no conoce bcrypt (D30). */
+  updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    return this.users.updatePasswordHash(id, passwordHash);
+  }
 }

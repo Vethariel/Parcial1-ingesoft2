@@ -25,7 +25,7 @@ _Última actualización: 2026-11-09_
 
 ## 3. Perfil de usuario
 
-Campos editables: nombre, dirección y contraseña.
+Campos editables: nombre, dirección y contraseña. Cambiar la contraseña **exige la contraseña actual**.
 
 ## 4. Carrito
 

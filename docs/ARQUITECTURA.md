@@ -41,7 +41,8 @@ _Última actualización: 2026-11-09. Estado: diseño, sin código aún._
 | 1 | Visitante | Ver catálogo y detalle de un producto | (Producto, Categoría) | products |
 | 2 | Visitante | Registrarse | Usuario | auth → users |
 | 3 | Visitante | Iniciar sesión | (Usuario) | auth |
-| 4 | Cliente | Editar perfil (nombre, dirección, contraseña) | Usuario | users |
+| 4 | Cliente | Editar perfil (nombre, dirección) | Usuario | users |
+| 4b | Cliente | Cambiar contraseña (exige la actual) | Usuario | auth → users |
 | 5 | Cliente | Agregar, quitar o cambiar cantidad en el carrito | Carrito, ItemCarrito (Producto) | cart |
 | 6 | Cliente | Ver carrito con aviso preventivo de stock | (Carrito, Producto) | cart |
 | 7 | Cliente | **Confirmar compra** | Producto, Orden, DetalleOrden, Carrito | **checkout** |
@@ -62,8 +63,8 @@ Los casos en **negrita** tocan varios grupos (paso 5 del método), y por eso los
 
 | Módulo | Responsabilidad | Piezas principales (planeadas) | Depende de |
 |---|---|---|---|
-| **auth** | Registro, login, emisión de tokens, guards de autenticación y rol | `AuthController`, `AuthService`, `JwtGuard`, `RolesGuard` | users |
-| **users** | Datos del usuario y perfil | `UsersController`, `UsersService`, `UserRepository` | — |
+| **auth** | **Credenciales**: registro, login, cambio de contraseña, hash, emisión y verificación de tokens, guards de rol | `AuthController`, `AuthService`, `PasswordHasher` (interfaz) + `BcryptPasswordHasher`, `JwtGuard`, `RolesGuard`, `@Roles`, `@CurrentUser` | users |
+| **users** | **Datos de la persona**: guardar y leer usuarios, perfil (nombre, dirección). No conoce bcrypt | `UsersController`, `UsersService`, `UserRepository` | — |
 | **categories** | CRUD de categorías | `CategoriesController`, `CategoriesService`, `CategoryRepository` | — |
 | **products** | Catálogo público, CRUD de admin, soft delete, **stock** | `ProductsController`, `ProductsService`, `StockService`, `ProductRepository` | categories |
 | **cart** | Carrito persistido y aviso preventivo | `CartController`, `CartService`, `CartRepository` | products |
@@ -188,6 +189,12 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D27 | **Tipos propios del dominio** en los contratos (`users/user.types.ts`, etc.); el repositorio Prisma traduce con `toDomain()` | Coherente con D13: Prisma no aparece en interfaces ni services. El tipo describe lo que el negocio necesita, no cómo se guarda (p. ej. sin `updatedAt`) | Usar los tipos generados por Prisma: una sola definición, pero acopla los contratos a Prisma |
 | D28 | **Errores del dominio** (`EmailAlreadyRegisteredError`, etc.); el repositorio traduce los errores de Prisma y el controller los traduce a HTTP | Cada capa habla su idioma: el service no conoce códigos de Prisma (`P2002`) ni de HTTP (`409`) | Lanzar excepciones HTTP desde services o repositorios |
 | D29 | **Cada módulo exporta solo su service**, nunca su repositorio | El repositorio es un detalle interno; los demás módulos piden lo que necesitan al service (encapsulamiento) | Exportar el repositorio para que otros módulos lo usen directamente |
+| D30 | **`auth` es dueño de las credenciales**; `users`, de los datos de la persona. Cambiar la contraseña es `PATCH /auth/password` y **exige la contraseña actual** | Evita la dependencia circular `auth ⇄ users` y separa seguridad de datos personales (S de SOLID). Exigir la actual impide que alguien con la sesión abierta se apropie de la cuenta | `users` dueño del hash (users conocería bcrypt) |
+| D31 | **JWT** firmado con `JWT_SECRET`, vida de **1 hora**, enviado en el header `Authorization: Bearer`. Payload: `{ sub, role }` | Sin estado ni tablas: verificar es comprobar la firma. No hay requisito de revocación inmediata; la vida corta limita el daño de un token filtrado | Sesiones en BD (revocables, pero con una consulta por petición); cookie `httpOnly` (requiere protección CSRF) |
+| D32 | **Guards propios** (`JwtGuard`, `RolesGuard`) con `@nestjs/jwt`, sin Passport | Unas 30 líneas legibles cada uno, sin la capa de "estrategias" de Passport (explícito sobre implícito) | Passport (`@nestjs/passport`) |
+| D33 | **Validación de forma con Zod** (`*.schemas.ts` + `StandardSchemaValidationPipe` global); las reglas de negocio quedan en los services | El tipo se deriva del esquema (una sola definición); permite transformar (normalizar el correo) y podría compartirse con el frontend | `class-validator` + `class-transformer` |
+| D34 | **Login sin pistas para atacantes**: el mismo mensaje y el mismo tiempo de respuesta si el correo no existe o si la contraseña es incorrecta | No revelar qué correos están registrados, ni por el mensaje ni midiendo tiempos | Mensajes distintos ("correo no existe" / "contraseña incorrecta") |
+| D35 | **El registro público siempre crea `CUSTOMER`**; los admin se crean con un **seed** | Si el registro aceptara un rol, cualquiera podría hacerse admin. El seed además deja lista la demo | Promover admins con SQL manual |
 
 ---
 

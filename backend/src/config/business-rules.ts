@@ -18,6 +18,12 @@ export const MAX_PAYMENT_ATTEMPTS = 3;
 /** D11: cada cuántos segundos revisa el job de expiración. */
 export const EXPIRATION_JOB_INTERVAL_SECONDS = 60;
 
+/** D31: vida del token de acceso (JWT). Corta, porque un JWT no se puede revocar. */
+export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
+
+/** Largo mínimo de contraseña al registrarse o cambiarla. */
+export const PASSWORD_MIN_LENGTH = 8;
+
 // Nota: "máximo 1 orden abierta por usuario" NO está aquí a propósito.
 // La garantiza un índice único parcial en la BD (D19); una constante daría la
 // falsa impresión de que se puede cambiar sin una migración.

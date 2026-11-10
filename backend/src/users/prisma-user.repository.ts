@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  Prisma,
-  type User as PrismaUser,
-} from '../generated/prisma/client.js';
+import { Prisma, type User as PrismaUser } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailAlreadyRegisteredError } from './user.errors.js';
 import type { UserRepository } from './user.repository.js';
@@ -41,6 +38,10 @@ export class PrismaUserRepository implements UserRepository {
       }
       throw error;
     }
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }
 }
 
