@@ -18,6 +18,9 @@ export const MAX_PAYMENT_ATTEMPTS = 3;
 /** D11: cada cuántos segundos revisa el job de expiración. */
 export const EXPIRATION_JOB_INTERVAL_SECONDS = 60;
 
+/** D11: órdenes que el job procesa por estado en cada pasada (evita pasadas eternas). */
+export const EXPIRATION_BATCH_SIZE = 100;
+
 /** D31: vida del token de acceso (JWT). Corta, porque un JWT no se puede revocar. */
 export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 

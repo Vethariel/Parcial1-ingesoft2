@@ -64,10 +64,14 @@ function setup(
     charge?: ChargeResult | 'network-error';
     attemptsUsed?: number;
     refundFails?: boolean;
+    recover?: ChargeResult | null;
+    extraOrders?: Order[];
   } = {},
 ) {
   const orders = new Map<string, Order>();
   if (options.order) orders.set(options.order.id, { ...options.order });
+  for (const o of options.extraOrders ?? []) orders.set(o.id, { ...o });
+  const cutoffs: Date[] = [];
   const calls = {
     charge: 0,
     refund: 0,
@@ -87,6 +91,14 @@ function setup(
     findById: (id: string) => Promise.resolve({ ...orders.get(id)! }),
     findForUser: (_user: string, id: string) =>
       Promise.resolve({ ...orders.get(id)! }),
+    findCreatedBefore: (status: OrderStatus, before: Date) => {
+      cutoffs.push(before);
+      return Promise.resolve(
+        [...orders.values()]
+          .filter((o) => o.status === status)
+          .map((o) => ({ ...o })),
+      );
+    },
     transition: (id: string, from: OrderStatus, to: OrderStatus) => {
       const order = orders.get(id);
       if (!order || order.status !== from) return Promise.resolve(false);
@@ -96,6 +108,7 @@ function setup(
   } as unknown as OrderService;
 
   const payments = {
+    recover: () => Promise.resolve(options.recover ?? null),
     attemptsUsed: () => Promise.resolve(attempts),
     charge: () => {
       calls.charge++;
@@ -149,7 +162,7 @@ function setup(
     orderService,
     payments,
   );
-  return { service, orders, calls };
+  return { service, orders, calls, cutoffs };
 }
 
 describe('CheckoutService.confirm', () => {
@@ -319,5 +332,66 @@ describe('CheckoutService: cancelar', () => {
     await expect(service.cancelByAdmin('o-1')).rejects.toThrow(
       InvalidOrderStateError,
     );
+  });
+});
+
+describe('CheckoutService.expireOrders (job, D11 y D54)', () => {
+  const now = new Date('2026-11-12T12:00:00Z');
+
+  it('busca las órdenes creadas hace más de 10 minutos (ventana + gracia)', async () => {
+    const { service, cutoffs } = setup();
+    await service.expireOrders(now);
+    expect(cutoffs[0].toISOString()).toBe('2026-11-12T11:50:00.000Z');
+  });
+
+  it('cancela las PENDING vencidas y libera su stock', async () => {
+    const { service, orders, calls } = setup({ order: anOrder() });
+    const summary = await service.expireOrders(now);
+    expect(summary).toEqual({ cancelled: 1, recovered: 0, failed: 0 });
+    expect(orders.get('o-1')!.status).toBe('CANCELLED');
+    expect(calls.released).toHaveLength(1);
+  });
+
+  it('PROCESSING atascada con cobro aprobado en la pasarela → PAID, sin cobrar de nuevo', async () => {
+    const { service, orders, calls } = setup({
+      order: anOrder({ status: 'PROCESSING' }),
+      recover: { status: 'APPROVED', reference: 'ch' },
+    });
+    const summary = await service.expireOrders(now);
+    expect(summary.recovered).toBe(1);
+    expect(orders.get('o-1')!.status).toBe('PAID');
+    expect(calls.charge).toBe(0);
+    expect(calls.released).toHaveLength(0);
+  });
+
+  it('PROCESSING atascada que la pasarela nunca recibió → se cancela', async () => {
+    const { service, orders, calls } = setup({
+      order: anOrder({ status: 'PROCESSING' }),
+      recover: null,
+    });
+    const summary = await service.expireOrders(now);
+    expect(summary.cancelled).toBe(1);
+    expect(orders.get('o-1')!.status).toBe('CANCELLED');
+    expect(calls.released).toHaveLength(1);
+  });
+
+  it('no toca órdenes PAID, SHIPPED ni CANCELLED', async () => {
+    const { service, orders } = setup({
+      extraOrders: [
+        anOrder({ id: 'a', status: 'PAID' }),
+        anOrder({ id: 'b', status: 'SHIPPED' }),
+        anOrder({ id: 'c', status: 'CANCELLED' }),
+      ],
+    });
+    expect(await service.expireOrders(now)).toEqual({
+      cancelled: 0,
+      recovered: 0,
+      failed: 0,
+    });
+    expect([...orders.values()].map((o) => o.status)).toEqual([
+      'PAID',
+      'SHIPPED',
+      'CANCELLED',
+    ]);
   });
 });

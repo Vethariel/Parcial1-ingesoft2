@@ -72,9 +72,9 @@ Los casos en **negrita** tocan varios grupos (paso 5 del método), y por eso los
 | **orders** | Órdenes, detalle, **estados y transiciones** (máquina de estados en `OrderService`). El cliente ve las suyas; el admin lista y envía | `OrdersController`, `AdminOrdersController`, `OrderService`, `OrderRepository` | security |
 | **payments** | Cobros, reembolsos y registro de cada intento; interfaz hacia la pasarela. No cambia estados de la orden | `PaymentsService`, `PaymentGateway` (interfaz), `MockPaymentGateway`, `PaymentRepository` | — |
 | **checkout** | **Coordina** confirmar, pagar y cancelar (cliente y admin) | `CheckoutController`, `AdminCheckoutController`, `CheckoutService` | users, cart, products (`StockService`), orders, payments, security |
-| **expirations** | Dispara la expiración periódica de órdenes | `ExpirationJob` (cron) | checkout |
+| **expirations** | Dispara cada minuto la expiración y la recuperación de órdenes (solo el reloj; la lógica está en checkout) | `ExpirationJob` (`@Interval` de `@nestjs/schedule`) | checkout |
 | **prisma** *(infra, global)* | Conexión única a la BD y transacciones | `PrismaService`, `PrismaTransactionRunner` (implementa `TransactionRunner`) | — |
-| **config** *(infra)* | Reglas de negocio y variables de entorno, cada una en un solo lugar | `business-rules.ts`: ventana de pago (5 min), gracia (5 min), liberación (= ventana + gracia), máx. intentos (3), frecuencia del cron (60 s), tamaño de página (20, máx. 100), unidades máximas por producto en el carrito (99). `env.ts`: `DATABASE_URL`, `PORT` | — |
+| **config** *(infra)* | Reglas de negocio y variables de entorno, cada una en un solo lugar | `business-rules.ts`: ventana de pago (5 min), gracia (5 min), liberación (= ventana + gracia), máx. intentos (3), frecuencia del job (60 s) y órdenes por pasada (100), tamaño de página (20, máx. 100), unidades máximas por producto en el carrito (99). `env.ts`: `DATABASE_URL`, `PORT` | — |
 | **shared** | Contratos transversales | `transaction.ts`: tipo `Transaction` y la interfaz `TransactionRunner`. `id.schema.ts`: ids de la URL como UUID. `pagination.ts`: esquema `?page&pageSize` y tipo `Page<T>`. `money.ts`: dinero en centavos enteros | — |
 
 La regla "máximo 1 orden abierta por usuario" no es una constante: la garantiza un índice en la BD (D19).
@@ -149,7 +149,7 @@ JwtGuard → RolesGuard → CheckoutController.pay → CheckoutService.pay
 ```
 Cliente: orden PENDING   (POST /checkout/orders/:id/cancel) ──┐
 3er intento de pago rechazado ───────────────────────────────┤
-ExpirationJob (paso 5d) ──────────────────────────────────────┼──▶ cancel(order, estadosPermitidos)
+ExpirationJob → expireOrders (PENDING > 10 min) ─────────────┼──▶ cancel(order, estadosPermitidos)
 Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ──┘
         │
         ├─ estado no permitido (SHIPPED, PROCESSING, CANCELLED) → 409
@@ -157,6 +157,17 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ──┘
         └─ TRANSACCIÓN
              ├─ OrderService.transition(estado → CANCELLED, tx)   0 filas → 409 (otro cambió el estado)
              └─ StockService.release(tx, items)                    en orden de id
+```
+
+### Expirar y recuperar: `ExpirationJob` cada 60 s → `CheckoutService.expireOrders(now)`
+
+```
+órdenes creadas hace más de 10 min (ventana 5 + gracia 5), en lotes de 100:
+   ├─ PENDING    → cancel(order, ['PENDING'])                  (si el cliente pagó justo antes: se omite)
+   └─ PROCESSING → PaymentsService.recover → PaymentGateway.findCharge(clave del intento)   (D54)
+                      ├─ aprobado          → PROCESSING → PAID (markPaid)
+                      └─ rechazado o nunca recibido → cancel(order, ['PROCESSING'])
+un error en una orden no detiene las demás: se cuenta y se reintenta en la siguiente pasada
 ```
 
 ---
@@ -223,7 +234,7 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ──┘
 | D52 | **Máquina de estados explícita** en `OrderService` (tabla `TRANSITIONS`: desde cada estado, a cuáles se puede pasar). Cada transición es un `UPDATE ... WHERE id = ? AND status = desde` que devuelve si se aplicó; una transición fuera de la tabla es un error de programación. La orden de otro cliente responde 404 | Las reglas de estado están en un solo lugar y se leen de un vistazo. La condición sobre el estado hace atómicas las transiciones: con doble clic o dos procesos, solo uno gana (capa 2 de §8). 404 en vez de 403 para no revelar que la orden existe | `if` repartidos en cada caso de uso; leer el estado y luego escribir (hueco entre ambos) |
 | D53 | **El mock de pagos usa tarjetas de prueba**: `POST /checkout/orders/:id/pay { cardNumber }`; una tarjeta terminada en `0002` es rechazada, las demás aprobadas. El número nunca se guarda (solo `"tarjeta ****1234"`) | Como las pasarelas reales: el rechazo se puede demostrar a voluntad, en vivo | Rechazo aleatorio (no se controla en una demo) |
 | D54 | **Recuperación de órdenes atascadas en `PROCESSING`** (el servidor cayó entre tomar la orden y cobrar): el job de expiración **consulta a la pasarela por la clave del intento** (`PaymentGateway.findCharge`), sin cobrar nada. Aprobado → `PAID`; rechazado o nunca recibido → `CANCELLED` + stock liberado. Se consulta en lugar de repetir el cobro porque el número de tarjeta no se guarda | Sin esto, la orden quedaría abierta para siempre y el cliente no podría volver a comprar (máximo 1 abierta, D19). Reutiliza la clave de idempotencia ya diseñada. **Limitación del mock:** guarda las claves en memoria, así que tras reiniciar las olvida; una pasarela real las conserva | Dejarlo como limitación documentada |
-| D55 | **Job de expiración con `@nestjs/schedule`** (`@Interval`); la lógica vive en `CheckoutService`, el job solo la dispara | Paquete oficial, una línea explícita sobre el método. El job es un disparador más, como el cliente o el admin (§5, Cancelar) | `setInterval` propio con `onModuleInit`/`onModuleDestroy` |
+| D55 | **Job de expiración con `@nestjs/schedule`** (`@Interval`, versión fija 12.0.2); la lógica vive en `CheckoutService.expireOrders`, el job solo la dispara. Si una pasada tarda más de un minuto, la siguiente no se superpone; procesa lotes de 100 órdenes | Paquete oficial, una línea explícita sobre el método. El job es un disparador más, como el cliente o el admin (§5, Cancelar) | `setInterval` propio con `onModuleInit`/`onModuleDestroy` |
 | D56 | **Cada intento de pago es una fila de `payments`**, creada en `PENDING` **antes** de llamar a la pasarela y actualizada con el resultado (`SUCCEEDED`/`FAILED`; `REFUNDED` al reembolsar). Se guarda solo `"tarjeta ****1234"`. `PaymentsService` cobra, reembolsa y recupera; **no** toca estados de la orden | Si la pasarela no responde, queda la huella del intento (`PENDING`) para recuperarlo (D54). Los intentos usados se cuentan en la BD (máximo 3). El `UNIQUE (orderId, attempt)` impide dos cobros del mismo intento. Nunca se almacenan datos de tarjeta | Registrar el pago solo después de cobrar (si el servidor cae en medio, no queda rastro) |
 | D57 | **La reserva bloquea los productos en orden de id** (`SELECT ... ORDER BY id FOR UPDATE`) y la liberación los recorre en el mismo orden | Si Ana bloquea A y luego B mientras Beto bloquea B y luego A, cada uno espera al otro para siempre (deadlock). Con un orden fijo, el segundo siempre espera al primero en la misma fila. Verificado: 8 compras simultáneas con los mismos dos productos, sin errores | Bloquear en el orden del carrito |
 | D58 | **Capa 5 refinada**: si `PROCESSING → PAID` no se aplica, se relee la orden. Si ya está `PAID` (el job de recuperación se adelantó), no se hace nada; solo si está `CANCELLED` se reembolsa | Reembolsar a ciegas devolvería el dinero de una orden que sí quedó pagada | Reembolsar siempre que la transición falle |

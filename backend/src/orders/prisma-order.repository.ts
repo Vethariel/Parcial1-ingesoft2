@@ -82,6 +82,21 @@ export class PrismaOrderRepository implements OrderRepository {
     };
   }
 
+  async findCreatedBefore(
+    status: OrderStatus,
+    before: Date,
+    limit: number,
+  ): Promise<StoredOrder[]> {
+    // Usa el índice (status, createdAt) del schema.
+    const rows = await this.prisma.order.findMany({
+      where: { status, createdAt: { lt: before } },
+      include,
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    });
+    return rows.map(toDomain);
+  }
+
   async transition(
     id: string,
     from: OrderStatus,

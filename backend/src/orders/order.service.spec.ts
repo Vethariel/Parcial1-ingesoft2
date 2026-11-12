@@ -33,6 +33,7 @@ function createFakeRepository(initial: StoredOrder[] = []) {
     },
     findById: (id) => Promise.resolve(byId.get(id) ?? null),
     findPage: () => Promise.reject(new Error('no usado')),
+    findCreatedBefore: () => Promise.reject(new Error('no usado')),
     transition: (id, from, to) => {
       const order = byId.get(id);
       if (!order || order.status !== from) return Promise.resolve(false);

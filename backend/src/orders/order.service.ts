@@ -81,6 +81,16 @@ export class OrderService {
     return order;
   }
 
+  /** Para el job de expiración: las más antiguas primero, en lotes. */
+  async findCreatedBefore(
+    status: OrderStatus,
+    before: Date,
+    limit: number,
+  ): Promise<Order[]> {
+    const stored = await this.orders.findCreatedBefore(status, before, limit);
+    return stored.map(toOrder);
+  }
+
   async findPage(filter: OrderFilter): Promise<Page<Order>> {
     const page = await this.orders.findPage(filter);
     return { ...page, items: page.items.map(toOrder) };

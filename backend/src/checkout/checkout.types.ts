@@ -32,3 +32,11 @@ export type PayResult = {
   declineReason?: string;
   attemptsLeft: number;
 };
+
+/** Resultado de una pasada del job de expiración. */
+export type ExpirationSummary = {
+  cancelled: number;
+  recovered: number;
+  /** Órdenes que dieron error; se reintentan en la siguiente pasada. */
+  failed: number;
+};

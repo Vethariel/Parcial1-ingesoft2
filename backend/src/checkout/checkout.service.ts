@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CartService } from '../cart/cart.service.js';
-import { MAX_PAYMENT_ATTEMPTS } from '../config/business-rules.js';
+import {
+  EXPIRATION_BATCH_SIZE,
+  MAX_PAYMENT_ATTEMPTS,
+  RESERVATION_RELEASE_MINUTES,
+} from '../config/business-rules.js';
 import { InvalidOrderStateError } from '../orders/order.errors.js';
 import { OrderService } from '../orders/order.service.js';
 import type { Order, OrderStatus } from '../orders/order.types.js';
@@ -25,6 +29,7 @@ import {
 import type {
   ConfirmResult,
   ExcludedItem,
+  ExpirationSummary,
   PayResult,
 } from './checkout.types.js';
 
@@ -199,6 +204,84 @@ export class CheckoutService {
   async cancelByAdmin(orderId: string): Promise<Order> {
     const order = await this.orders.findById(orderId);
     return this.cancel(order, ['PENDING', 'PAID']);
+  }
+
+  /**
+   * Pasada del job (cada minuto). Para las órdenes creadas hace más de
+   * RESERVATION_RELEASE_MINUTES (ventana de 5 + gracia de 5, §6/§8):
+   *   PENDING    → nadie pagó a tiempo: se cancela y se libera el stock.
+   *   PROCESSING → atascada (el servidor cayó mientras cobraba, D54): se
+   *                consulta a la pasarela por la clave del intento.
+   *                Aprobado → PAID; rechazado o nunca recibido → cancelar.
+   * Un error en una orden no detiene las demás: se cuenta y se sigue.
+   */
+  async expireOrders(now: Date): Promise<ExpirationSummary> {
+    const releaseBefore = new Date(
+      now.getTime() - RESERVATION_RELEASE_MINUTES * 60_000,
+    );
+    const summary: ExpirationSummary = {
+      cancelled: 0,
+      recovered: 0,
+      failed: 0,
+    };
+
+    const pending = await this.orders.findCreatedBefore(
+      'PENDING',
+      releaseBefore,
+      EXPIRATION_BATCH_SIZE,
+    );
+    for (const order of pending) {
+      await this.track(summary, async () => {
+        if (await this.cancelIfUnchanged(order, ['PENDING'])) {
+          summary.cancelled++;
+        }
+      });
+    }
+
+    const stuck = await this.orders.findCreatedBefore(
+      'PROCESSING',
+      releaseBefore,
+      EXPIRATION_BATCH_SIZE,
+    );
+    for (const order of stuck) {
+      await this.track(summary, async () => {
+        const result = await this.payments.recover(order.id);
+        if (result?.status === 'APPROVED') {
+          await this.markPaid(order.id);
+          summary.recovered++;
+        } else if (await this.cancelIfUnchanged(order, ['PROCESSING'])) {
+          summary.cancelled++;
+        }
+      });
+    }
+    return summary;
+  }
+
+  /** Cancela, pero si otro proceso cambió la orden justo antes, no es un error. */
+  private async cancelIfUnchanged(
+    order: Order,
+    allowed: OrderStatus[],
+  ): Promise<boolean> {
+    try {
+      await this.cancel(order, allowed);
+      return true;
+    } catch (error) {
+      if (error instanceof OrderChangedError) {
+        return false; // p. ej. el cliente pagó en el último instante
+      }
+      throw error;
+    }
+  }
+
+  private async track(
+    summary: ExpirationSummary,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      await work();
+    } catch {
+      summary.failed++;
+    }
   }
 
   /**

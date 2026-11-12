@@ -24,6 +24,12 @@ export interface OrderRepository {
   create(tx: Transaction, data: OrderToSave): Promise<StoredOrder>;
   findById(id: string): Promise<StoredOrder | null>;
   findPage(filter: OrderFilter): Promise<Page<StoredOrder>>;
+  /** Órdenes en `status` creadas antes de `before` (para el job de expiración). */
+  findCreatedBefore(
+    status: OrderStatus,
+    before: Date,
+    limit: number,
+  ): Promise<StoredOrder[]>;
   /**
    * UPDATE orders SET status = to WHERE id = ? AND status = from.
    * Devuelve false si la orden no estaba en `from` (otro llegó primero).
