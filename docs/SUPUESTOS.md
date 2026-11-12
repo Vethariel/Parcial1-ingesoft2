@@ -165,7 +165,7 @@ Usuario ──1:1── Carrito ──1:N── ItemCarrito ──N:1── Prod
 ## 10. Pendiente de decidir (fase de diseño)
 
 
-- Órdenes atascadas en `PROCESSING` (p. ej. el servidor se cae a mitad del pago): recuperación reintentando el cobro con el mismo `orderId`, que es seguro gracias a la clave de idempotencia.
+_Nada por ahora._ Las órdenes atascadas en `PROCESSING` se recuperan con el job de expiración, repitiendo el cobro con la misma clave de idempotencia (ARQUITECTURA D54).
 
 ## 11. Fuera de alcance
 
