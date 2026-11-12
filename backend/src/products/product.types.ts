@@ -36,6 +36,33 @@ export type ProductChanges = {
   active?: boolean;
 };
 
+/** Fila bloqueada con FOR UPDATE durante la reserva (solo lo que se necesita). */
+export type LockedProduct = {
+  id: string;
+  name: string;
+  price: string;
+  stock: number;
+  active: boolean;
+};
+
+/** Unidades de un producto (lo que se pide reservar o liberar). */
+export type StockLine = {
+  productId: string;
+  quantity: number;
+};
+
+/** Resultado de reservar un producto (§6, orden parcial). */
+export type Reservation = {
+  productId: string;
+  productName: string;
+  /** Precio del momento: será el snapshot de la orden. */
+  unitPrice: string;
+  requested: number;
+  /** min(stock, pedido); 0 si no hay stock o el producto está desactivado. */
+  reserved: number;
+  active: boolean;
+};
+
 export type ProductFilter = {
   categoryId?: string;
   /** true en el catálogo público; false en el listado del admin. */

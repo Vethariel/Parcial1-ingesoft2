@@ -15,5 +15,7 @@ import { PrismaCartRepository } from './prisma-cart.repository.js';
     CartService,
     { provide: CART_REPOSITORY, useClass: PrismaCartRepository },
   ],
+  // checkout lee el carrito y saca lo que entró en la orden.
+  exports: [CartService],
 })
 export class CartModule {}

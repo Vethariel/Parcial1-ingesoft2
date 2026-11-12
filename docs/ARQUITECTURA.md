@@ -71,7 +71,7 @@ Los casos en **negrita** tocan varios grupos (paso 5 del método), y por eso los
 | **cart** | Carrito persistido (solo CUSTOMER) y aviso preventivo | `CartController`, `CartService`, `CartRepository` | products (lee productos vía `ProductsService.findByIds`), security |
 | **orders** | Órdenes, detalle, **estados y transiciones** (máquina de estados en `OrderService`). El cliente ve las suyas; el admin lista y envía | `OrdersController`, `AdminOrdersController`, `OrderService`, `OrderRepository` | security |
 | **payments** | Cobros, reembolsos y registro de cada intento; interfaz hacia la pasarela. No cambia estados de la orden | `PaymentsService`, `PaymentGateway` (interfaz), `MockPaymentGateway`, `PaymentRepository` | — |
-| **checkout** | **Coordina** confirmar, pagar y cancelar | `CheckoutController`, `CheckoutService` | cart, products, orders, payments |
+| **checkout** | **Coordina** confirmar, pagar y cancelar (cliente y admin) | `CheckoutController`, `AdminCheckoutController`, `CheckoutService` | users, cart, products (`StockService`), orders, payments, security |
 | **expirations** | Dispara la expiración periódica de órdenes | `ExpirationJob` (cron) | checkout |
 | **prisma** *(infra, global)* | Conexión única a la BD y transacciones | `PrismaService`, `PrismaTransactionRunner` (implementa `TransactionRunner`) | — |
 | **config** *(infra)* | Reglas de negocio y variables de entorno, cada una en un solo lugar | `business-rules.ts`: ventana de pago (5 min), gracia (5 min), liberación (= ventana + gracia), máx. intentos (3), frecuencia del cron (60 s), tamaño de página (20, máx. 100), unidades máximas por producto en el carrito (99). `env.ts`: `DATABASE_URL`, `PORT` | — |
@@ -106,51 +106,57 @@ auth ──▶ users
 
 ---
 
-## 5. Flujo de una compra (diseño preliminar)
+## 5. Flujo de una compra
 
-### Confirmar compra: `POST /checkout/confirm`
+Código: `src/checkout/checkout.service.ts`. `CheckoutService` decide **cuándo** pasa cada cosa; cada módulo sabe **cómo** (§8 de SUPUESTOS).
+
+### Confirmar compra: `POST /checkout/confirm` → 201 `{ order, excluded }`
 
 ```
 JwtGuard (¿quién es?) → RolesGuard (¿es CUSTOMER?)
 → CheckoutController.confirm
-→ CheckoutService.confirm(usuario)
-   ├─ validar: dirección en el perfil, sin otra orden PENDING
-   ├─ CartService: obtener items (rechazar productos inactivos)
-   └─ TRANSACCIÓN (milisegundos)
-        ├─ StockService.reservar(items)       SELECT ... FOR UPDATE, reserva min(stock, pedido)
-        ├─ si nada se reservó → rollback → 409 "sin stock"
-        ├─ OrderService.crear(...)            PENDING, snapshot de precio/nombre/total/dirección
-        └─ CartService.quitar(reservados)     lo excluido se queda en el carrito
-→ respuesta: orden + productos excluidos
+→ CheckoutService.confirm(userId)
+   ├─ UsersService.getProfile        sin dirección → 400
+   ├─ CartService.getItems           carrito vacío → 400
+   └─ TRANSACCIÓN (TransactionRunner.run, milisegundos)
+        ├─ StockService.reserve(tx, items)
+        │    └─ SELECT ... WHERE id = ANY(...) ORDER BY id FOR UPDATE   (bloquea en orden de id, D57)
+        │       reservado = min(stock, pedido), 0 si está desactivado; UPDATE stock = stock - reservado
+        ├─ nada reservado → error → ROLLBACK → 409 con `excluded`
+        ├─ OrderService.create(tx, ...)  PENDING, snapshot de nombre/precio/dirección, total en el servidor
+        │    └─ ya tiene una orden abierta → el índice parcial la rechaza → ROLLBACK (el stock vuelve) → 409
+        └─ CartService.removeOrdered(tx, ...)   lo reservado sale del carrito; lo excluido se queda
 ```
 
-### Pagar: `POST /checkout/orders/:id/pay`
+### Pagar: `POST /checkout/orders/:id/pay { cardNumber }` → 200 `{ order, declineReason?, attemptsLeft }`
 
 ```
-JwtGuard → RolesGuard
-→ CheckoutController.pay
-→ CheckoutService.pay(usuario, orderId)
-   ├─ capa 1: ¿es suya?, ¿PENDING?, ¿dentro de los 5 min?, ¿intentos < 3?   (si no, no cobra)
-   ├─ capa 2: OrderService: PENDING → PROCESSING atómico   (0 filas → responder estado actual)
-   ├─ capa 3: PaymentGateway.charge(orderId + intento, total de la orden)
-   ├─ OK      → OrderService: PROCESSING → PAID   (capa 5: 0 filas → reembolso)
-   └─ rechazo → OrderService: PROCESSING → PENDING; si es el 3er intento → cancelarOrden()
-→ respuesta: estado de la orden
+JwtGuard → RolesGuard → CheckoutController.pay → CheckoutService.pay
+   ├─ capa 1: OrderService.findForUser (ajena → 404)
+   │          CANCELLED → 409 · PAID/SHIPPED/PROCESSING → responde el estado actual, sin cobrar
+   │          fuera de la ventana de 5 min → 409
+   ├─ capa 2: OrderService.transition(PENDING → PROCESSING)   0 filas (doble clic) → estado actual, sin cobrar
+   ├─ intento = PaymentsService.attemptsUsed + 1               (contado DESPUÉS de tomar la orden)
+   ├─ capa 3: PaymentsService.charge (fila PENDING → PaymentGateway.charge con clave orderId:intento)
+   │          sin respuesta → 503; la orden queda PROCESSING y la verifica el job (D54)
+   ├─ aprobado → capa 5: transition(PROCESSING → PAID)
+   │             0 filas → otro la resolvió: si quedó CANCELLED → reembolso; si quedó PAID → nada (D58)
+   └─ rechazado → transition(PROCESSING → PENDING); si fue el 3er intento → cancelar ya
 ```
 
-### Cancelar: una sola operación, cuatro disparadores
+### Cancelar: una sola operación (`CheckoutService.cancel`), varios disparadores
 
 ```
-Cliente: orden PENDING (POST /checkout/orders/:id/cancel) ──┐
-3er intento de pago fallido ────────────────────────────────┤
-ExpirationJob (reloj, cada minuto) ─────────────────────────┼──▶ CheckoutService.cancelarOrden(orderId)
-Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
+Cliente: orden PENDING   (POST /checkout/orders/:id/cancel) ──┐
+3er intento de pago rechazado ───────────────────────────────┤
+ExpirationJob (paso 5d) ──────────────────────────────────────┼──▶ cancel(order, estadosPermitidos)
+Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ──┘
         │
-        ├─ ¿SHIPPED? → rechazar (sería una devolución, fuera de alcance)
-        ├─ ¿PAID?    → PaymentGateway.refund(referencia del cobro)
-        │                 └─ si falla → NO se cancela, se informa el error
-        ├─ OrderService: → CANCELLED (atómico)
-        └─ StockService.liberar(detalle)
+        ├─ estado no permitido (SHIPPED, PROCESSING, CANCELLED) → 409
+        ├─ ¿PAID? → PaymentsService.refund   falla → 502 y la orden NO se cancela
+        └─ TRANSACCIÓN
+             ├─ OrderService.transition(estado → CANCELLED, tx)   0 filas → 409 (otro cambió el estado)
+             └─ StockService.release(tx, items)                    en orden de id
 ```
 
 ---
@@ -219,6 +225,9 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D54 | **Recuperación de órdenes atascadas en `PROCESSING`** (el servidor cayó entre tomar la orden y cobrar): el job de expiración **consulta a la pasarela por la clave del intento** (`PaymentGateway.findCharge`), sin cobrar nada. Aprobado → `PAID`; rechazado o nunca recibido → `CANCELLED` + stock liberado. Se consulta en lugar de repetir el cobro porque el número de tarjeta no se guarda | Sin esto, la orden quedaría abierta para siempre y el cliente no podría volver a comprar (máximo 1 abierta, D19). Reutiliza la clave de idempotencia ya diseñada. **Limitación del mock:** guarda las claves en memoria, así que tras reiniciar las olvida; una pasarela real las conserva | Dejarlo como limitación documentada |
 | D55 | **Job de expiración con `@nestjs/schedule`** (`@Interval`); la lógica vive en `CheckoutService`, el job solo la dispara | Paquete oficial, una línea explícita sobre el método. El job es un disparador más, como el cliente o el admin (§5, Cancelar) | `setInterval` propio con `onModuleInit`/`onModuleDestroy` |
 | D56 | **Cada intento de pago es una fila de `payments`**, creada en `PENDING` **antes** de llamar a la pasarela y actualizada con el resultado (`SUCCEEDED`/`FAILED`; `REFUNDED` al reembolsar). Se guarda solo `"tarjeta ****1234"`. `PaymentsService` cobra, reembolsa y recupera; **no** toca estados de la orden | Si la pasarela no responde, queda la huella del intento (`PENDING`) para recuperarlo (D54). Los intentos usados se cuentan en la BD (máximo 3). El `UNIQUE (orderId, attempt)` impide dos cobros del mismo intento. Nunca se almacenan datos de tarjeta | Registrar el pago solo después de cobrar (si el servidor cae en medio, no queda rastro) |
+| D57 | **La reserva bloquea los productos en orden de id** (`SELECT ... ORDER BY id FOR UPDATE`) y la liberación los recorre en el mismo orden | Si Ana bloquea A y luego B mientras Beto bloquea B y luego A, cada uno espera al otro para siempre (deadlock). Con un orden fijo, el segundo siempre espera al primero en la misma fila. Verificado: 8 compras simultáneas con los mismos dos productos, sin errores | Bloquear en el orden del carrito |
+| D58 | **Capa 5 refinada**: si `PROCESSING → PAID` no se aplica, se relee la orden. Si ya está `PAID` (el job de recuperación se adelantó), no se hace nada; solo si está `CANCELLED` se reembolsa | Reembolsar a ciegas devolvería el dinero de una orden que sí quedó pagada | Reembolsar siempre que la transición falle |
+| D59 | **Respuestas del pago**: siempre 200 con el estado de la orden (`PAID`, `PENDING` + motivo + intentos restantes, `CANCELLED` al tercer rechazo, `PROCESSING` si otra petición está cobrando). Sin respuesta de la pasarela → **503**; reembolso fallido → **502** | Un rechazo de tarjeta no es un error del sistema: es un resultado que el cliente debe ver (idempotencia, §8). 5xx solo cuando falla un sistema externo | 402/409 en cada rechazo |
 
 ---
 

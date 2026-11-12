@@ -64,6 +64,7 @@ function createFakeRepository(
     setQuantity: (_user, productId, quantity) =>
       Promise.resolve(items.has(productId) && !!items.set(productId, quantity)),
     removeItem: (_user, productId) => Promise.resolve(items.delete(productId)),
+    subtractQuantities: () => Promise.reject(new Error('no usado')),
   };
 }
 

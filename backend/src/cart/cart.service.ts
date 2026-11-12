@@ -8,7 +8,13 @@ import {
   CartQuantityLimitError,
 } from './cart.errors.js';
 import { CART_REPOSITORY, type CartRepository } from './cart.repository.js';
-import type { CartLine, CartView, CartWarning } from './cart.types.js';
+import type { Transaction } from '../shared/transaction.js';
+import type {
+  CartItem,
+  CartLine,
+  CartView,
+  CartWarning,
+} from './cart.types.js';
 
 /**
  * Carrito persistido del cliente (casos 5 y 6). NO reserva stock (§4):
@@ -82,6 +88,20 @@ export class CartService {
       throw new CartItemNotFoundError(productId);
     }
     return this.getCart(userId);
+  }
+
+  /** Para checkout: lo que hay en el carrito (id y cantidad), sin armar la vista. */
+  getItems(userId: string): Promise<CartItem[]> {
+    return this.cart.findItems(userId);
+  }
+
+  /** Para checkout, dentro de su transacción: saca del carrito lo que entró en la orden. */
+  removeOrdered(
+    tx: Transaction,
+    userId: string,
+    ordered: CartItem[],
+  ): Promise<void> {
+    return this.cart.subtractQuantities(tx, userId, ordered);
   }
 
   /** @throws CartItemNotFoundError */

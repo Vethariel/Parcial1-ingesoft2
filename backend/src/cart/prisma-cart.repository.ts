@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import { asPrismaTransaction } from '../prisma/prisma-transaction-runner.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { Transaction } from '../shared/transaction.js';
 import type { CartRepository } from './cart.repository.js';
 import type { CartItem } from './cart.types.js';
 
@@ -73,6 +75,25 @@ export class PrismaCartRepository implements CartRepository {
       where: { productId, cart: { userId } },
     });
     return count > 0;
+  }
+
+  async subtractQuantities(
+    tx: Transaction,
+    userId: string,
+    lines: CartItem[],
+  ): Promise<void> {
+    const client = asPrismaTransaction(tx);
+    for (const { productId, quantity } of lines) {
+      // Se reservó todo lo que había en el carrito → la línea sale.
+      await client.cartItem.deleteMany({
+        where: { productId, cart: { userId }, quantity: { lte: quantity } },
+      });
+      // Se reservó una parte → queda la cantidad faltante.
+      await client.cartItem.updateMany({
+        where: { productId, cart: { userId }, quantity: { gt: quantity } },
+        data: { quantity: { decrement: quantity } },
+      });
+    }
   }
 
   /** UPDATE cart_items SET quantity = quantity + q WHERE ... AND quantity <= max - q */

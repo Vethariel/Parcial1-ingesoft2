@@ -1,5 +1,7 @@
 import type { Page } from '../shared/pagination.js';
+import type { Transaction } from '../shared/transaction.js';
 import type {
+  LockedProduct,
   NewProduct,
   Product,
   ProductChanges,
@@ -29,6 +31,13 @@ export interface ProductRepository {
    * (no existe o no alcanza). Solo la usa StockService (D5, D40).
    */
   adjustStock(id: string, delta: number): Promise<Product | null>;
+  /**
+   * SELECT ... FOR UPDATE: lee y BLOQUEA las filas hasta el fin de la
+   * transacción, en orden de id (evita deadlocks, §7). Solo StockService.
+   */
+  lockForUpdate(tx: Transaction, ids: string[]): Promise<LockedProduct[]>;
+  /** stock = stock + delta dentro de la transacción (negativo = descontar). */
+  incrementStock(tx: Transaction, id: string, delta: number): Promise<void>;
 }
 
 /** Token de inyección: las interfaces no existen en tiempo de ejecución. */

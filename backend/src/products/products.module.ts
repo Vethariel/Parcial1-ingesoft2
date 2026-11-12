@@ -18,7 +18,7 @@ import { StockService } from './stock.service.js';
     StockService, // único que modifica el stock (D5)
     { provide: PRODUCT_REPOSITORY, useClass: PrismaProductRepository },
   ],
-  // cart y checkout usarán el service (y luego StockService).
-  exports: [ProductsService],
+  // cart lee productos; checkout reserva y libera stock (solo vía StockService).
+  exports: [ProductsService, StockService],
 })
 export class ProductsModule {}

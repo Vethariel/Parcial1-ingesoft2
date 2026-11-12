@@ -35,6 +35,8 @@ function createFakeRepository(): ProductRepository {
       product.stock += delta;
       return Promise.resolve({ ...product });
     },
+    lockForUpdate: () => Promise.reject(new Error('no usado')),
+    incrementStock: () => Promise.reject(new Error('no usado')),
   };
 }
 

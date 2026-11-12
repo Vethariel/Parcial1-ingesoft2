@@ -1,3 +1,4 @@
+import type { Transaction } from '../shared/transaction.js';
 import type { CartItem } from './cart.types.js';
 
 /**
@@ -25,6 +26,15 @@ export interface CartRepository {
   ): Promise<boolean>;
   /** Devuelve false si el producto no está en el carrito. */
   removeItem(userId: string, productId: string): Promise<boolean>;
+  /**
+   * Dentro de la transacción de confirmar: resta las unidades que entraron
+   * en la orden; la línea se borra si no queda nada (§6, carrito tras confirmar).
+   */
+  subtractQuantities(
+    tx: Transaction,
+    userId: string,
+    lines: CartItem[],
+  ): Promise<void>;
 }
 
 /** Token de inyección: las interfaces no existen en tiempo de ejecución. */

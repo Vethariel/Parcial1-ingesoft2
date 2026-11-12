@@ -1,13 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import { asPrismaTransaction } from '../prisma/prisma-transaction-runner.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { Page } from '../shared/pagination.js';
+import type { Transaction } from '../shared/transaction.js';
 import {
   InvalidCategoryError,
   ProductNotFoundError,
 } from './product.errors.js';
 import type { ProductRepository } from './product.repository.js';
 import type {
+  LockedProduct,
   NewProduct,
   Product,
   ProductChanges,
@@ -105,6 +108,31 @@ export class PrismaProductRepository implements ProductRepository {
     });
     // count = 0: no existe o el stock no alcanza. El service decide cuál.
     return count === 0 ? null : this.findById(id);
+  }
+
+  lockForUpdate(tx: Transaction, ids: string[]): Promise<LockedProduct[]> {
+    // SQL explícito: Prisma no tiene una forma de expresar FOR UPDATE.
+    // ORDER BY id: todas las transacciones bloquean en el mismo orden, así
+    // dos compras con productos en común nunca se esperan mutuamente.
+    return asPrismaTransaction(tx).$queryRaw<LockedProduct[]>`
+      SELECT id, name, price::text AS price, stock, active
+      FROM products
+      WHERE id = ANY(${ids}::uuid[])
+      ORDER BY id
+      FOR UPDATE`;
+  }
+
+  async incrementStock(
+    tx: Transaction,
+    id: string,
+    delta: number,
+  ): Promise<void> {
+    // Si un bug intentara dejarlo negativo, el CHECK (stock >= 0) de la BD
+    // lo rechaza y la transacción completa se deshace (D20).
+    await asPrismaTransaction(tx).product.update({
+      where: { id },
+      data: { stock: { increment: delta } },
+    });
   }
 }
 

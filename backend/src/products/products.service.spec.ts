@@ -33,6 +33,8 @@ function createFakeRepository() {
     create: () => Promise.reject(new Error('no usado')),
     update: () => Promise.reject(new Error('no usado')),
     adjustStock: () => Promise.reject(new Error('no usado')),
+    lockForUpdate: () => Promise.reject(new Error('no usado')),
+    incrementStock: () => Promise.reject(new Error('no usado')),
   };
   return { repository, findPage };
 }
