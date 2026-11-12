@@ -66,7 +66,7 @@ Los casos en **negrita** tocan varios grupos (paso 5 del método), y por eso los
 | **auth** | **Credenciales**: registro, login, cambio de contraseña, hash, emisión de tokens | `AuthController`, `AuthService`, `PasswordHasher` (interfaz) + `BcryptPasswordHasher` | users, security |
 | **security** | **Control de acceso** ("el portero"): configuración del JWT, verificación de tokens y roles. No conoce la base de usuarios | `SecurityModule`, `JwtGuard`, `RolesGuard`, `@Roles`, `@CurrentUser` | — |
 | **users** | **Datos de la persona**: guardar y leer usuarios, perfil (nombre, dirección). No conoce bcrypt | `UsersController`, `UsersService`, `UserRepository` | — |
-| **categories** | CRUD de categorías | `CategoriesController`, `CategoriesService`, `CategoryRepository` | — |
+| **categories** | CRUD de categorías | `CategoriesController` (público), `AdminCategoriesController`, `CategoriesService`, `CategoryRepository` | — |
 | **products** | Catálogo público, CRUD de admin, soft delete, **stock** | `ProductsController`, `ProductsService`, `StockService`, `ProductRepository` | categories |
 | **cart** | Carrito persistido y aviso preventivo | `CartController`, `CartService`, `CartRepository` | products |
 | **orders** | Órdenes, detalle, **estados y transiciones** | `OrdersController`, `OrderService`, `OrderRepository` | — |
@@ -210,6 +210,7 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D44 | **Desactivar y reactivar con `PATCH /products/:id { active }`** | `active` es un atributo más del producto; un solo endpoint, simétrico | `DELETE` que no borra (confuso); acciones `/activate` y `/deactivate` (dos endpoints) |
 | D45 | **Precios como texto en JSON** (`"19990.00"`), validados positivos y con máximo 2 decimales | Los `number` de JavaScript son binarios (`0.1 + 0.2 ≠ 0.3`); la BD usa `Decimal(12,2)` | Precios como `number` |
 | D46 | **Categorías: "nombre único" y "no borrar con productos" las garantiza la BD** (`UNIQUE` y FK `Restrict`); el repositorio traduce P2002/P2003/P2025 a errores del dominio (409/409/404). Los ids de la URL se validan como UUID con `idSchema` compartido (400) | Sin hueco entre "¿tiene productos?" y borrar. Mismo patrón que el correo duplicado y la orden abierta única (D19, D28) | Consultar antes de escribir en el service |
+| D47 | **Todo endpoint de administración vive bajo `/admin/...`, en un controller propio** (`AdminCategoriesController`, `AdminProductsController`) con `@UseGuards(JwtGuard, RolesGuard)` y `@Roles(['ADMIN'])` **en la clase**. Los públicos quedan en el recurso (`/categories`, `/products`) | La URL dice quién puede usarla. Un endpoint nuevo de admin queda protegido aunque se olvide marcarlo. El controller público y el de admin cambian por razones distintas (S) | Rutas por recurso con `@Roles` en cada método (depende de no olvidarlo; el listado de admin quedaría como excepción) |
 
 ---
 
