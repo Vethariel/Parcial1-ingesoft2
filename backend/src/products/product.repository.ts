@@ -21,6 +21,12 @@ export interface ProductRepository {
    * @throws InvalidCategoryError si la nueva categoría no existe.
    */
   update(id: string, changes: ProductChanges): Promise<Product>;
+  /**
+   * Suma `delta` al stock en UNA operación atómica, solo si el resultado no
+   * queda negativo. Devuelve el producto actualizado, o null si no se aplicó
+   * (no existe o no alcanza). Solo la usa StockService (D5, D40).
+   */
+  adjustStock(id: string, delta: number): Promise<Product | null>;
 }
 
 /** Token de inyección: las interfaces no existen en tiempo de ejecución. */

@@ -54,6 +54,16 @@ export const updateProductSchema = z
   });
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
+/** Ajuste relativo de stock (D40): +40 llegó mercancía, -3 merma. */
+export const adjustStockSchema = z.object({
+  delta: z
+    .int()
+    .min(-PG_INT_MAX)
+    .max(PG_INT_MAX)
+    .refine((delta) => delta !== 0, 'El ajuste no puede ser 0'),
+});
+export type AdjustStockInput = z.infer<typeof adjustStockSchema>;
+
 /** ?page&pageSize&categoryId (D41). */
 export const catalogQuerySchema = paginationSchema.extend({
   categoryId: idSchema.optional(),

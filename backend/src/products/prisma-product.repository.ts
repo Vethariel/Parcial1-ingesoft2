@@ -83,6 +83,21 @@ export class PrismaProductRepository implements ProductRepository {
       throw translate(error, { id, categoryId: changes.categoryId });
     }
   }
+
+  async adjustStock(id: string, delta: number): Promise<Product | null> {
+    // Equivale a:
+    //   UPDATE products SET stock = stock + delta
+    //   WHERE id = $id AND stock >= -delta
+    // La BD lee y escribe la fila en el mismo paso (con la fila bloqueada),
+    // así que no hay hueco entre leer y escribir: dos ajustes simultáneos se
+    // aplican uno tras otro y ninguno se pierde (D40).
+    const { count } = await this.prisma.product.updateMany({
+      where: { id, stock: { gte: -delta } },
+      data: { stock: { increment: delta } },
+    });
+    // count = 0: no existe o el stock no alcanza. El service decide cuál.
+    return count === 0 ? null : this.findById(id);
+  }
 }
 
 /** Traduce los errores de Prisma a errores del dominio (el service no conoce Prisma). */
