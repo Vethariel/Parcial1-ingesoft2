@@ -106,6 +106,40 @@ auth ──▶ users
 
 ---
 
+## 4b. Frontend (`frontend/`)
+
+El frontend **no decide**: muestra lo que responde el backend y le pregunta. Precios, totales, stock y permisos los calcula y valida el servidor (CLAUDE.md). Los permisos del frontend son solo comodidad visual; la seguridad real está en los guards.
+
+### Capas (comparadas con el backend)
+
+| Backend | Frontend | Responsabilidad |
+|---|---|---|
+| Controller | **Página** (`*Page.tsx`) | Una pantalla por URL; junta datos y componentes |
+| — | **Componente** (`ProductCard.tsx`) | Pieza visual reutilizable: recibe datos y los dibuja |
+| Service | **Hook / contexto** (`useApi`, `AuthContext`) | Estado de la interfaz (cargando, error, sesión). Sin reglas de negocio |
+| Repository | **`*.api.ts`** | Única capa que hace HTTP; para el frontend, el backend es su "BD" |
+| `PrismaService` | **`api/http.ts`** | Cliente HTTP único: agrega el token, convierte errores en `ApiError` con el mensaje del backend |
+| Guards | **`RequireAuth.tsx`** | Esconde páginas sin sesión o sin rol (solo visual) |
+| `app.module.ts` / `main.ts` | **`App.tsx`** / **`main.tsx`** | Rutas (URL → página) / punto de entrada |
+
+### Carpetas por dominio (igual que el backend, D2)
+
+| Carpeta | Corresponde a |
+|---|---|
+| `api/` | Cliente HTTP y token |
+| `auth/` | `backend/auth`: registro, login, sesión |
+| `catalog/` | `backend/products` + `categories` (público) |
+| `cart/` | `backend/cart` + carrito anónimo en `localStorage` (§4 de SUPUESTOS) |
+| `checkout/` | `backend/checkout`: confirmar y pagar |
+| `orders/` | `backend/orders` |
+| `profile/` | `backend/users` |
+| `admin/` | Endpoints `/admin/*` (D47) |
+| `shared/` | `useApi`, tipos de las respuestas, componentes comunes (`Price`, `Spinner`, `ErrorMessage`, `Layout`) |
+
+Regla de dependencias: una página nunca hace `fetch` directamente; pasa por el `*.api.ts` de su dominio, que usa `http.ts`.
+
+---
+
 ## 5. Flujo de una compra
 
 Código: `src/checkout/checkout.service.ts`. `CheckoutService` decide **cuándo** pasa cada cosa; cada módulo sabe **cómo** (§8 de SUPUESTOS).
@@ -239,6 +273,13 @@ un error en una orden no detiene las demás: se cuenta y se reintenta en la sigu
 | D57 | **La reserva bloquea los productos en orden de id** (`SELECT ... ORDER BY id FOR UPDATE`) y la liberación los recorre en el mismo orden | Si Ana bloquea A y luego B mientras Beto bloquea B y luego A, cada uno espera al otro para siempre (deadlock). Con un orden fijo, el segundo siempre espera al primero en la misma fila. Verificado: 8 compras simultáneas con los mismos dos productos, sin errores | Bloquear en el orden del carrito |
 | D58 | **Capa 5 refinada**: si `PROCESSING → PAID` no se aplica, se relee la orden. Si ya está `PAID` (el job de recuperación se adelantó), no se hace nada; solo si está `CANCELLED` se reembolsa | Reembolsar a ciegas devolvería el dinero de una orden que sí quedó pagada | Reembolsar siempre que la transición falle |
 | D59 | **Respuestas del pago**: siempre 200 con el estado de la orden (`PAID`, `PENDING` + motivo + intentos restantes, `CANCELLED` al tercer rechazo, `PROCESSING` si otra petición está cobrando). Sin respuesta de la pasarela → **503**; reembolso fallido → **502** | Un rechazo de tarjeta no es un error del sistema: es un resultado que el cliente debe ver (idempotencia, §8). 5xx solo cuando falla un sistema externo | 402/409 en cada rechazo |
+| D60 | **Frontend: el token se guarda en `localStorage`** y viaja en `Authorization: Bearer` desde `api/http.ts`. Si el backend responde 401 a una petición con token, se cierra la sesión | Sobrevive a recargar la página. Riesgo: un XSS podría leerlo; React escapa el texto por defecto y el token dura 1 h (D31) | Solo en memoria (cada recarga cierra la sesión); cookie `httpOnly` (requiere CSRF) |
+| D61 | **Estilos con Tailwind CSS** (plugin de Vite) | Interfaz atractiva rápido, sin archivos CSS aparte | CSS Modules (más lento de escribir); MUI (pesada, más "mágica") |
+| D62 | **Proxy de Vite en desarrollo**: `/api/*` → `http://localhost:3000/*` | Para el navegador, front y back son el mismo origen: sin configurar CORS | Habilitar CORS en el backend |
+| D63 | **No se comparten los esquemas Zod con el frontend**: valida lo mínimo (campos obligatorios) y muestra los mensajes 400 del backend, ya en español (D39). `shared/types.ts` describe la forma de las respuestas | Una sola fuente de verdad para las reglas (el backend), sin la complejidad de un paquete compartido | Workspace de npm con los esquemas compartidos |
+| D64 | **Datos del servidor con `fetch` + hook propio `useApi`** (cargando / datos / error / recargar; ignora respuestas viejas) | ~30 líneas explícitas, sin caja negra | TanStack Query (caché y reintentos automáticos, pero más "magia") |
+| D65 | **React Router en modo declarativo** (`<BrowserRouter>` + `<Routes>`) | Estándar y el más documentado; las rutas se leen en un solo archivo (`App.tsx`) | TanStack Router |
+| D66 | **Dependencias del frontend con versión exacta y al menos dos semanas de publicadas** (React 19.3.1, Vite 8.3.5, React Router 8.5.1, Tailwind 4.3.3, TypeScript 7.0.2) | Reduce el riesgo de instalar un paquete recién comprometido (cadena de suministro) y hace reproducible la instalación | Rangos `^` con la última versión |
 
 ---
 

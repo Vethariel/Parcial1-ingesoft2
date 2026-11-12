@@ -1,0 +1,6 @@
+/* Tailwind (D61): las clases utilitarias se escriben en el JSX. */
+@import 'tailwindcss';
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+}
