@@ -14,6 +14,8 @@ export interface ProductRepository {
   findPage(filter: ProductFilter): Promise<Page<Product>>;
   /** Devuelve también los desactivados: el service decide quién puede verlos. */
   findById(id: string): Promise<Product | null>;
+  /** Varios a la vez (incluye desactivados). Los ids inexistentes se omiten. */
+  findByIds(ids: string[]): Promise<Product[]>;
   /** @throws InvalidCategoryError si la categoría no existe. */
   create(data: NewProduct): Promise<Product>;
   /**

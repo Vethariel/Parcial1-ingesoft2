@@ -26,6 +26,7 @@ function createFakeRepository(): ProductRepository {
   return {
     findPage: () => Promise.reject(new Error('no usado')),
     findById: (id) => Promise.resolve(byId.get(id) ?? null),
+    findByIds: () => Promise.reject(new Error('no usado')),
     create: () => Promise.reject(new Error('no usado')),
     update: () => Promise.reject(new Error('no usado')),
     adjustStock: (id, delta) => {

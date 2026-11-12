@@ -24,6 +24,9 @@ export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 /** Largo mínimo de contraseña al registrarse o cambiarla. */
 export const PASSWORD_MIN_LENGTH = 8;
 
+/** §4: unidades máximas de un mismo producto en el carrito. */
+export const CART_MAX_QUANTITY_PER_ITEM = 99;
+
 /** D41: elementos por página si el cliente no indica pageSize. */
 export const PAGE_SIZE_DEFAULT = 20;
 

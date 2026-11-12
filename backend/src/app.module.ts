@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module.js';
+import { CartModule } from './cart/cart.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProductsModule } from './products/products.module.js';
@@ -14,6 +15,7 @@ import { UsersModule } from './users/users.module.js';
     AuthModule,
     CategoriesModule,
     ProductsModule,
+    CartModule,
   ],
 })
 export class AppModule {}

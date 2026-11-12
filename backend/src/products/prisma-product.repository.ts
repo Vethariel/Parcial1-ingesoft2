@@ -61,6 +61,14 @@ export class PrismaProductRepository implements ProductRepository {
     return row ? toDomain(row) : null;
   }
 
+  async findByIds(ids: string[]): Promise<Product[]> {
+    const rows = await this.prisma.product.findMany({
+      where: { id: { in: ids } },
+      include,
+    });
+    return rows.map(toDomain);
+  }
+
   async create(data: NewProduct): Promise<Product> {
     try {
       const row = await this.prisma.product.create({ data, include });

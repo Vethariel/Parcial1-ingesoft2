@@ -38,6 +38,16 @@ export class ProductsService {
     return product;
   }
 
+  /**
+   * Para otros módulos (cart): varios productos, incluidos los desactivados,
+   * porque quien llama decide cómo mostrarlos.
+   */
+  findByIds(ids: string[]): Promise<Product[]> {
+    return ids.length === 0
+      ? Promise.resolve([])
+      : this.products.findByIds(ids);
+  }
+
   /** Listado del admin: incluye desactivados (D42). */
   findAdminPage(query: CatalogQuery): Promise<Page<Product>> {
     return this.products.findPage({ ...query, onlyActive: false });
