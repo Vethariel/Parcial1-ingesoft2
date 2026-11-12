@@ -67,15 +67,15 @@ Los casos en **negrita** tocan varios grupos (paso 5 del método), y por eso los
 | **security** | **Control de acceso** ("el portero"): configuración del JWT, verificación de tokens y roles. No conoce la base de usuarios | `SecurityModule`, `JwtGuard`, `RolesGuard`, `@Roles`, `@CurrentUser` | — |
 | **users** | **Datos de la persona**: guardar y leer usuarios, perfil (nombre, dirección). No conoce bcrypt | `UsersController`, `UsersService`, `UserRepository` | — |
 | **categories** | CRUD de categorías | `CategoriesController` (público), `AdminCategoriesController`, `CategoriesService`, `CategoryRepository` | — |
-| **products** | Catálogo público, CRUD de admin, soft delete, **stock** | `ProductsController`, `ProductsService`, `StockService`, `ProductRepository` | categories |
+| **products** | Catálogo público, CRUD de admin, soft delete, **stock** | `ProductsController` (público), `AdminProductsController`, `ProductsService`, `StockService`, `ProductRepository` | — (la categoría la valida la FK, D48) |
 | **cart** | Carrito persistido y aviso preventivo | `CartController`, `CartService`, `CartRepository` | products |
 | **orders** | Órdenes, detalle, **estados y transiciones** | `OrdersController`, `OrderService`, `OrderRepository` | — |
 | **payments** | Cobros y reembolsos; interfaz hacia la pasarela | `PaymentGateway` (interfaz), `MockPaymentGateway`, `PaymentRepository` | — |
 | **checkout** | **Coordina** confirmar, pagar y cancelar | `CheckoutController`, `CheckoutService` | cart, products, orders, payments |
 | **expirations** | Dispara la expiración periódica de órdenes | `ExpirationJob` (cron) | checkout |
 | **prisma** *(infra, global)* | Conexión única a la BD y transacciones | `PrismaService`, `PrismaTransactionRunner` (implementa `TransactionRunner`) | — |
-| **config** *(infra)* | Reglas de negocio y variables de entorno, cada una en un solo lugar | `business-rules.ts`: ventana de pago (5 min), gracia (5 min), liberación (= ventana + gracia), máx. intentos (3), frecuencia del cron (60 s). `env.ts`: `DATABASE_URL`, `PORT` | — |
-| **shared** | Contratos transversales | `transaction.ts`: tipo `Transaction` y la interfaz `TransactionRunner` | — |
+| **config** *(infra)* | Reglas de negocio y variables de entorno, cada una en un solo lugar | `business-rules.ts`: ventana de pago (5 min), gracia (5 min), liberación (= ventana + gracia), máx. intentos (3), frecuencia del cron (60 s), tamaño de página (20, máx. 100). `env.ts`: `DATABASE_URL`, `PORT` | — |
+| **shared** | Contratos transversales | `transaction.ts`: tipo `Transaction` y la interfaz `TransactionRunner`. `id.schema.ts`: ids de la URL como UUID. `pagination.ts`: esquema `?page&pageSize` y tipo `Page<T>` | — |
 
 La regla "máximo 1 orden abierta por usuario" no es una constante: la garantiza un índice en la BD (D19).
 
@@ -91,9 +91,8 @@ expirations
      │                │          │          │
      ▼                ▼          ▼          ▼
    cart ──────▶  products     orders    payments
-                     │
-                     ▼
-                categories
+
+   categories   (nadie depende de él: products valida la categoría con la FK, D48)
 
 auth ──▶ users
   │        │
@@ -211,6 +210,7 @@ Admin: orden PENDING o PAID (POST /admin/orders/:id/cancel) ┘
 | D45 | **Precios como texto en JSON** (`"19990.00"`), validados positivos y con máximo 2 decimales | Los `number` de JavaScript son binarios (`0.1 + 0.2 ≠ 0.3`); la BD usa `Decimal(12,2)` | Precios como `number` |
 | D46 | **Categorías: "nombre único" y "no borrar con productos" las garantiza la BD** (`UNIQUE` y FK `Restrict`); el repositorio traduce P2002/P2003/P2025 a errores del dominio (409/409/404). Los ids de la URL se validan como UUID con `idSchema` compartido (400) | Sin hueco entre "¿tiene productos?" y borrar. Mismo patrón que el correo duplicado y la orden abierta única (D19, D28) | Consultar antes de escribir en el service |
 | D47 | **Todo endpoint de administración vive bajo `/admin/...`, en un controller propio** (`AdminCategoriesController`, `AdminProductsController`) con `@UseGuards(JwtGuard, RolesGuard)` y `@Roles(['ADMIN'])` **en la clase**. Los públicos quedan en el recurso (`/categories`, `/products`) | La URL dice quién puede usarla. Un endpoint nuevo de admin queda protegido aunque se olvide marcarlo. El controller público y el de admin cambian por razones distintas (S) | Rutas por recurso con `@Roles` en cada método (depende de no olvidarlo; el listado de admin quedaría como excepción) |
+| D48 | **`products` no depende de `categories`**: al crear o editar un producto, la FK de `categoryId` rechaza una categoría inexistente (P2003) y el repositorio lo traduce a `InvalidCategoryError` (**400**: un dato del cuerpo es inválido, no el recurso de la URL) | Una sola consulta y sin hueco entre "¿existe la categoría?" y el insert (un admin podría borrarla en medio). Un módulo menos acoplado | Consultar antes a `CategoriesService.findById` (dependencia entre módulos y la FK igual sería necesaria) |
 
 ---
 

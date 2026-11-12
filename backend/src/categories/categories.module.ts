@@ -15,7 +15,8 @@ import { PrismaCategoryRepository } from './prisma-category.repository.js';
     CategoriesService,
     { provide: CATEGORY_REPOSITORY, useClass: PrismaCategoryRepository },
   ],
-  // Se exporta el service para que products pueda usarlo más adelante.
+  // Ningún módulo lo usa hoy (products valida la categoría con la FK, D48).
+  // Se exporta solo el service, nunca el repositorio (D29).
   exports: [CategoriesService],
 })
 export class CategoriesModule {}

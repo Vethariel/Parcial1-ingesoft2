@@ -24,6 +24,12 @@ export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 /** Largo mínimo de contraseña al registrarse o cambiarla. */
 export const PASSWORD_MIN_LENGTH = 8;
 
+/** D41: elementos por página si el cliente no indica pageSize. */
+export const PAGE_SIZE_DEFAULT = 20;
+
+/** D41: máximo de elementos por página (evita pedir el catálogo entero de una vez). */
+export const PAGE_SIZE_MAX = 100;
+
 // Nota: "máximo 1 orden abierta por usuario" NO está aquí a propósito.
 // La garantiza un índice único parcial en la BD (D19); una constante daría la
 // falsa impresión de que se puede cambiar sin una migración.
