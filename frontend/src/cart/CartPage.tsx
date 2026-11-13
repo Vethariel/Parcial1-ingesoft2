@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
+import { ApiError } from '../api/http.ts'
 import { ProductImage } from '../catalog/ProductImage.tsx'
+import { checkoutApi } from '../checkout/checkout.api.ts'
 import { ErrorMessage, Spinner } from '../shared/components/Feedback.tsx'
 import { Button, Card } from '../shared/components/Form.tsx'
 import { Price } from '../shared/components/Price.tsx'
-import type { CartLine } from '../shared/types.ts'
+import type { CartLine, ExcludedItem } from '../shared/types.ts'
+import { useSubmit } from '../shared/useSubmit.ts'
 import { QuantityStepper } from './QuantityStepper.tsx'
 import { useCart } from './useCart.ts'
 import { WarningBadge } from './WarningBadge.tsx'
@@ -64,10 +67,7 @@ export function CartPage() {
               Inicia sesión para comprar
             </Link>
           ) : (
-            // Paso F5: confirmar la compra (POST /checkout/confirm).
-            <Button className="w-full" disabled>
-              Confirmar compra (próximamente)
-            </Button>
+            <ConfirmPurchase />
           )}
         </Card>
       </aside>
@@ -125,5 +125,44 @@ function CartRow({ line }: { line: CartLine }) {
         {error && <ErrorMessage error={error} />}
       </div>
     </li>
+  )
+}
+
+/**
+ * "Confirmar compra" (caso 7): el backend reserva lo disponible y crea la
+ * orden PENDING. Lo que no entró se queda en el carrito (§6).
+ */
+function ConfirmPurchase() {
+  const { refresh } = useCart()
+  const navigate = useNavigate()
+  const confirm = useSubmit(checkoutApi.confirm)
+
+  async function onConfirm() {
+    const result = await confirm.run()
+    if (!result.ok) return
+    await refresh() // lo reservado salió del carrito
+    navigate(`/orders/${result.value.order.id}`, { state: { excluded: result.value.excluded } })
+  }
+
+  const error = confirm.error
+  const excluded = error instanceof ApiError ? (error.body as { excluded?: ExcludedItem[] } | null)?.excluded : undefined
+  return (
+    <div className="space-y-3">
+      <Button className="w-full" busy={confirm.busy} onClick={onConfirm}>
+        Confirmar compra
+      </Button>
+      {error && <ErrorMessage error={error} />}
+      {/* Enlaces según el motivo, para que el cliente sepa qué hacer. */}
+      {error instanceof ApiError && error.status === 400 && (
+        <Link to="/profile" className="block text-sm text-indigo-600 hover:underline">
+          Ir a mi perfil →
+        </Link>
+      )}
+      {error instanceof ApiError && error.status === 409 && !excluded && (
+        <Link to="/orders" className="block text-sm text-indigo-600 hover:underline">
+          Ver mis órdenes →
+        </Link>
+      )}
+    </div>
   )
 }

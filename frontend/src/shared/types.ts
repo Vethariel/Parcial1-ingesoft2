@@ -67,3 +67,48 @@ export type CartView = {
   total: string
   hasWarnings: boolean
 }
+
+export type OrderStatus = 'PENDING' | 'PROCESSING' | 'PAID' | 'SHIPPED' | 'CANCELLED'
+
+/** Línea de la orden: snapshot de nombre y precio al confirmar (no cambia después). */
+export type OrderItem = {
+  productId: string
+  productName: string
+  unitPrice: string
+  quantity: number
+  subtotal: string
+}
+
+/** Orden (backend/src/orders/order.types.ts). Las fechas llegan como texto ISO. */
+export type Order = {
+  id: string
+  userId: string
+  status: OrderStatus
+  total: string
+  shippingAddress: string
+  createdAt: string
+  /** Hasta cuándo se puede pagar (createdAt + 5 min, calculado por el backend). */
+  paymentDeadline: string
+  items: OrderItem[]
+}
+
+/** Producto que no entró (completo) en la orden: se queda en el carrito (§6). */
+export type ExcludedItem = {
+  productId: string
+  productName: string
+  requested: number
+  reserved: number
+  reason: 'UNAVAILABLE' | 'OUT_OF_STOCK' | 'PARTIAL'
+}
+
+export type ConfirmResult = {
+  order: Order
+  excluded: ExcludedItem[]
+}
+
+/** Respuesta de pagar (D59): el estado de la orden cuenta lo que pasó. */
+export type PayResult = {
+  order: Order
+  declineReason?: string
+  attemptsLeft: number
+}

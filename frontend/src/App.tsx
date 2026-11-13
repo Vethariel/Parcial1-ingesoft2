@@ -5,6 +5,8 @@ import { LoginPage } from './auth/LoginPage.tsx'
 import { RegisterPage } from './auth/RegisterPage.tsx'
 import { RequireAuth } from './auth/RequireAuth.tsx'
 import { CartPage } from './cart/CartPage.tsx'
+import { OrderDetailPage } from './orders/OrderDetailPage.tsx'
+import { OrdersPage } from './orders/OrdersPage.tsx'
 import { CatalogPage } from './catalog/CatalogPage.tsx'
 import { ProductDetailPage } from './catalog/ProductDetailPage.tsx'
 import { ProfilePage } from './profile/ProfilePage.tsx'
@@ -28,6 +30,23 @@ export default function App() {
           element={
             <RequireAuth>
               <ProfilePage />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="orders"
+          element={
+            <RequireAuth role="CUSTOMER">
+              <OrdersPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="orders/:id"
+          element={
+            <RequireAuth role="CUSTOMER">
+              <OrderDetailPage />
             </RequireAuth>
           }
         />

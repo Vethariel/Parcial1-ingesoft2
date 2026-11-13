@@ -67,6 +67,7 @@ function SessionMenu() {
     <>
       {/* Solo visual: los endpoints /admin los protege RolesGuard (D47). */}
       {user.role === 'ADMIN' && <NavItem to="/admin">Admin</NavItem>}
+      {user.role === 'CUSTOMER' && <NavItem to="/orders">Mis órdenes</NavItem>}
       <NavItem to="/profile">{user.name}</NavItem>
       <button
         type="button"
