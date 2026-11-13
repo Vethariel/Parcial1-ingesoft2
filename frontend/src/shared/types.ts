@@ -9,3 +9,20 @@ export type Page<T> = {
   page: number
   pageSize: number
 }
+
+export type Role = 'CUSTOMER' | 'ADMIN'
+
+/** Usuario público (backend/src/users/public-user.ts): nunca trae el hash. */
+export type User = {
+  id: string
+  name: string
+  email: string
+  address: string | null
+  role: Role
+}
+
+/** Respuesta de registro y login (backend/src/auth/auth.types.ts). */
+export type AuthResult = {
+  accessToken: string
+  user: User
+}

@@ -1,6 +1,10 @@
 // Rutas de la app (como app.module.ts en el backend): qué página corresponde
 // a cada URL. Cada dominio agrega aquí sus páginas.
 import { Route, Routes } from 'react-router'
+import { LoginPage } from './auth/LoginPage.tsx'
+import { RegisterPage } from './auth/RegisterPage.tsx'
+import { RequireAuth } from './auth/RequireAuth.tsx'
+import { ProfilePage } from './profile/ProfilePage.tsx'
 import { Layout } from './shared/components/Layout.tsx'
 import { HealthPage } from './shared/HealthPage.tsx'
 
@@ -8,7 +12,21 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
+        {/* Públicas */}
         <Route index element={<HealthPage />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
+
+        {/* Con sesión */}
+        <Route
+          path="profile"
+          element={
+            <RequireAuth>
+              <ProfilePage />
+            </RequireAuth>
+          }
+        />
+
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

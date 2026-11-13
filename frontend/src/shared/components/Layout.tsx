@@ -1,4 +1,6 @@
-import { NavLink, Outlet } from 'react-router'
+import type { ReactNode } from 'react'
+import { NavLink, Outlet, useNavigate } from 'react-router'
+import { useAuth } from '../../auth/useAuth.ts'
 
 /** Estructura común de todas las páginas: barra superior + contenido. */
 export function Layout() {
@@ -10,6 +12,9 @@ export function Layout() {
             Tienda
           </NavLink>
           <NavItem to="/">Catálogo</NavItem>
+          <div className="ml-auto flex items-center gap-4">
+            <SessionMenu />
+          </div>
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">
@@ -20,7 +25,45 @@ export function Layout() {
   )
 }
 
-export function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
+/** Lado derecho de la barra: depende de si hay sesión y del rol. */
+function SessionMenu() {
+  const { user, restoring, logout } = useAuth()
+  const navigate = useNavigate()
+
+  if (restoring) return null
+  if (!user) {
+    return (
+      <>
+        <NavItem to="/login">Iniciar sesión</NavItem>
+        <NavLink
+          to="/register"
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+        >
+          Registrarse
+        </NavLink>
+      </>
+    )
+  }
+  return (
+    <>
+      {/* Solo visual: los endpoints /admin los protege RolesGuard (D47). */}
+      {user.role === 'ADMIN' && <NavItem to="/admin">Admin</NavItem>}
+      <NavItem to="/profile">{user.name}</NavItem>
+      <button
+        type="button"
+        onClick={() => {
+          logout()
+          navigate('/')
+        }}
+        className="text-sm text-slate-500 hover:text-slate-900"
+      >
+        Salir
+      </button>
+    </>
+  )
+}
+
+export function NavItem({ to, children }: { to: string; children: ReactNode }) {
   return (
     <NavLink
       to={to}
