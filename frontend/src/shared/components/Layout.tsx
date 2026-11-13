@@ -66,7 +66,7 @@ function SessionMenu() {
   return (
     <>
       {/* Solo visual: los endpoints /admin los protege RolesGuard (D47). */}
-      {user.role === 'ADMIN' && <NavItem to="/admin">Admin</NavItem>}
+      {user.role === 'ADMIN' && <NavItem to="/admin" end={false}>Admin</NavItem>}
       {user.role === 'CUSTOMER' && <NavItem to="/orders">Mis órdenes</NavItem>}
       <NavItem to="/profile">{user.name}</NavItem>
       <button
@@ -83,11 +83,11 @@ function SessionMenu() {
   )
 }
 
-export function NavItem({ to, children }: { to: string; children: ReactNode }) {
+export function NavItem({ to, end = true, children }: { to: string; end?: boolean; children: ReactNode }) {
   return (
     <NavLink
       to={to}
-      end
+      end={end}
       className={({ isActive }) =>
         `whitespace-nowrap text-sm ${isActive ? 'font-semibold text-indigo-600' : 'text-slate-600 hover:text-slate-900'}`
       }

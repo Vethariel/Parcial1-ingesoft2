@@ -1,6 +1,11 @@
 // Rutas de la app (como app.module.ts en el backend): qué página corresponde
 // a cada URL. Cada dominio agrega aquí sus páginas.
-import { Route, Routes } from 'react-router'
+import { Navigate, Route, Routes } from 'react-router'
+import { AdminCategoriesPage } from './admin/AdminCategoriesPage.tsx'
+import { AdminLayout } from './admin/AdminLayout.tsx'
+import { AdminOrderDetailPage } from './admin/AdminOrderDetailPage.tsx'
+import { AdminOrdersPage } from './admin/AdminOrdersPage.tsx'
+import { AdminProductsPage } from './admin/AdminProductsPage.tsx'
 import { LoginPage } from './auth/LoginPage.tsx'
 import { RegisterPage } from './auth/RegisterPage.tsx'
 import { RequireAuth } from './auth/RequireAuth.tsx'
@@ -50,6 +55,22 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+        {/* Administración: solo ADMIN (los endpoints /admin los protege RolesGuard, D47). */}
+        <Route
+          path="admin"
+          element={
+            <RequireAuth role="ADMIN">
+              <AdminLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<Navigate to="products" replace />} />
+          <Route path="products" element={<AdminProductsPage />} />
+          <Route path="categories" element={<AdminCategoriesPage />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
+          <Route path="orders/:id" element={<AdminOrderDetailPage />} />
+        </Route>
 
         <Route path="*" element={<NotFound />} />
       </Route>
