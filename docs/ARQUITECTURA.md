@@ -280,6 +280,7 @@ un error en una orden no detiene las demás: se cuenta y se reintenta en la sigu
 | D64 | **Datos del servidor con `fetch` + hook propio `useApi`** (cargando / datos / error / recargar; ignora respuestas viejas) | ~30 líneas explícitas, sin caja negra | TanStack Query (caché y reintentos automáticos, pero más "magia") |
 | D65 | **React Router en modo declarativo** (`<BrowserRouter>` + `<Routes>`) | Estándar y el más documentado; las rutas se leen en un solo archivo (`App.tsx`) | TanStack Router |
 | D66 | **Dependencias del frontend con versión exacta y al menos dos semanas de publicadas** (React 19.3.1, Vite 8.3.5, React Router 8.5.1, Tailwind 4.3.3, TypeScript 7.0.2) | Reduce el riesgo de instalar un paquete recién comprometido (cadena de suministro) y hace reproducible la instalación | Rangos `^` con la última versión |
+| D67 | **401 significa solo "token ausente, inválido o vencido"** (o credenciales de login inválidas, donde aún no hay token). La contraseña actual incorrecta al cambiarla responde **400** | El usuario sí está autenticado: falla un dato del formulario. Con 401, el frontend (D60) cerraba la sesión de quien solo se equivocó al escribir su contraseña (bug detectado con la prueba en el navegador) | Mantener 401 y hacer una excepción en el frontend para `/auth/password` (acopla `http.ts` a un endpoint) |
 
 ---
 

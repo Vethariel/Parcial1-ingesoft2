@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -76,7 +77,10 @@ export class AuthController {
       await this.auth.changePassword(user.id, input);
     } catch (error) {
       if (error instanceof WrongCurrentPasswordError) {
-        throw new UnauthorizedException(error.message); // 401
+        // 400, NO 401: el usuario SÍ está autenticado (token válido); lo que
+        // falla es un dato del formulario. 401 queda solo para "token ausente,
+        // inválido o vencido", y el frontend lo usa para cerrar la sesión (D67).
+        throw new BadRequestException(error.message); // 400
       }
       throw error;
     }
