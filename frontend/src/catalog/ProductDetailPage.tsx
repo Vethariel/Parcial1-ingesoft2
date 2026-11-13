@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router'
 import { ApiError } from '../api/http.ts'
+import { AddToCart } from '../cart/AddToCart.tsx'
 import { ErrorMessage, Spinner } from '../shared/components/Feedback.tsx'
 import { Price } from '../shared/components/Price.tsx'
 import { useApi } from '../shared/useApi.ts'
@@ -38,7 +39,7 @@ export function ProductDetailPage() {
             <StockBadge stock={product.stock} />
           </div>
           <p className="leading-relaxed text-slate-600">{product.description}</p>
-          {/* Paso F4: selector de cantidad y "Agregar al carrito". */}
+          <AddToCart productId={product.id} />
         </div>
       </div>
     </div>

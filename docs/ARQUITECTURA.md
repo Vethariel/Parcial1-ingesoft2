@@ -129,7 +129,7 @@ El frontend **no decide**: muestra lo que responde el backend y le pregunta. Pre
 | `api/` | Cliente HTTP y token |
 | `auth/` | `backend/auth`: registro, login, sesión |
 | `catalog/` | `backend/products` + `categories` (público) |
-| `cart/` | `backend/cart` + carrito anónimo en `localStorage` (§4 de SUPUESTOS) |
+| `cart/` | `backend/cart` + carrito anónimo en `localStorage` (§4 de SUPUESTOS), cotizado con `POST /cart/quote`; `CartProvider` unifica ambos (D69) |
 | `checkout/` | `backend/checkout`: confirmar y pagar |
 | `orders/` | `backend/orders` |
 | `profile/` | `backend/users` |
@@ -282,6 +282,7 @@ un error en una orden no detiene las demás: se cuenta y se reintenta en la sigu
 | D66 | **Dependencias del frontend con versión exacta y al menos dos semanas de publicadas** (React 19.3.1, Vite 8.3.5, React Router 8.5.1, Tailwind 4.3.3, TypeScript 7.0.2) | Reduce el riesgo de instalar un paquete recién comprometido (cadena de suministro) y hace reproducible la instalación | Rangos `^` con la última versión |
 | D67 | **401 significa solo "token ausente, inválido o vencido"** (o credenciales de login inválidas, donde aún no hay token). La contraseña actual incorrecta al cambiarla responde **400** | El usuario sí está autenticado: falla un dato del formulario. Con 401, el frontend (D60) cerraba la sesión de quien solo se equivocó al escribir su contraseña (bug detectado con la prueba en el navegador) | Mantener 401 y hacer una excepción en el frontend para `/auth/password` (acopla `http.ts` a un endpoint) |
 | D68 | **Cotización pública del carrito anónimo: `POST /cart/quote { items }`**, sin sesión ni guardado. Devuelve el mismo `CartView` que el carrito con sesión, calculado por la misma función (`CartService.buildView`). Máximo 50 líneas, sin productos repetidos | El servidor es la autoridad del precio también sin sesión (como Shopify o Magento), y el frontend nunca suma. El carrito anónimo sigue viviendo en el navegador (§4) | Carrito anónimo sin total; sumar en el frontend (duplica la regla del total); carrito anónimo guardado en el servidor (cambia §4: tablas, cookie y limpieza) |
+| D69 | **Frontend: un solo `CartProvider` para ambos carritos** (anónimo en `localStorage` + cotización; cliente en el servidor). Al iniciar sesión: si el guardado está vacío, el anónimo pasa solo; si no, se ofrece agregarlo (aviso global en el `Layout`). La fusión se marca por usuario (`useRef`) y el carrito anónimo se vacía **antes** de enviarse | Las páginas no distinguen de dónde viene el carrito. `StrictMode` ejecuta los efectos dos veces en desarrollo: sin la marca, los productos se agregarían dos veces (verificado en el navegador: no se duplican) | Ofrecer siempre (molesto si el guardado está vacío); fusionar siempre sin preguntar (contradice §4) |
 
 ---
 

@@ -44,3 +44,26 @@ export type Product = {
   active: boolean
   category: Category
 }
+
+/** Línea guardada: lo que el carrito anónimo tiene en localStorage. */
+export type CartItem = {
+  productId: string
+  quantity: number
+}
+
+/** Aviso preventivo calculado por el backend (D49). */
+export type CartWarning = 'UNAVAILABLE' | 'INSUFFICIENT_STOCK'
+
+export type CartLine = {
+  product: Pick<Product, 'id' | 'name' | 'imageUrl' | 'price' | 'stock' | 'active'>
+  quantity: number
+  subtotal: string
+  warning: CartWarning | null
+}
+
+/** Vista del carrito (backend/src/cart/cart.types.ts): totales calculados por el servidor. */
+export type CartView = {
+  items: CartLine[]
+  total: string
+  hasWarnings: boolean
+}

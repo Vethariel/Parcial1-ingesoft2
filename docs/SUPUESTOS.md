@@ -31,7 +31,8 @@ Campos editables: nombre, dirección y contraseña. Cambiar la contraseña **exi
 
 - **Sin sesión:** el carrito vive en el navegador (localStorage).
 - **Con sesión:** el carrito se persiste en la BD, ligado a la cuenta.
-- **Al iniciar sesión:** gana el carrito guardado. El anónimo **no se pierde**: se le ofrece al usuario re-agregar esos productos (reutiliza el endpoint de "agregar al carrito", sin lógica nueva en el backend).
+- **Al iniciar sesión:** gana el carrito guardado. El anónimo **no se pierde**: se le ofrece al usuario re-agregar esos productos (reutiliza el endpoint de "agregar al carrito", sin lógica nueva en el backend). Si el carrito guardado está **vacío**, no hay conflicto: los productos pasan solos. Lo que no se pueda agregar (p. ej. un producto desactivado) se informa por nombre.
+- **Total del carrito anónimo:** lo calcula el backend (`POST /cart/quote`, ARQUITECTURA D68); el frontend nunca suma.
 - **El carrito NO reserva stock.** Tener un producto en el carrito no garantiza disponibilidad al pagar.
 
 **Justificación:** no se pisa ni se pierde información del usuario y la fusión se resuelve en la interfaz.

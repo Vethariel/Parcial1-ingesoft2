@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useAuth } from '../../auth/useAuth.ts'
+import { MergeBanner } from '../../cart/MergeBanner.tsx'
+import { useCart } from '../../cart/useCart.ts'
 
 /** Estructura común de todas las páginas: barra superior + contenido. */
 export function Layout() {
@@ -13,15 +15,32 @@ export function Layout() {
           </NavLink>
           <NavItem to="/">Catálogo</NavItem>
           <div className="ml-auto flex items-center gap-4">
+            <CartLink />
             <SessionMenu />
           </div>
         </nav>
       </header>
+      <MergeBanner />
       <main className="mx-auto max-w-6xl px-4 py-8">
         {/* Outlet: aquí se dibuja la página que corresponde a la URL. */}
         <Outlet />
       </main>
     </div>
+  )
+}
+
+/** Carrito con el número de productos distintos (no se ocultan cuentas: lo informa el backend). */
+function CartLink() {
+  const { mode, view } = useCart()
+  if (mode === 'admin') return null // el admin no compra (D50)
+  const count = view?.items.length ?? 0
+  return (
+    <NavItem to="/cart">
+      Carrito
+      {count > 0 && (
+        <span className="ml-1 rounded-full bg-indigo-600 px-1.5 py-0.5 text-xs font-semibold text-white">{count}</span>
+      )}
+    </NavItem>
   )
 }
 

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthProvider.tsx'
+import { CartProvider } from './cart/CartProvider.tsx'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -12,7 +13,10 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       {/* AuthProvider: la sesión disponible para todas las páginas. */}
       <AuthProvider>
-        <App />
+        {/* CartProvider depende de la sesión: va dentro de AuthProvider. */}
+        <CartProvider>
+          <App />
+        </CartProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
