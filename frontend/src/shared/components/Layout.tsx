@@ -7,7 +7,7 @@ export function Layout() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
-        <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
+        <nav className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:gap-6">
           <NavLink to="/" className="text-lg font-bold text-indigo-600">
             Tienda
           </NavLink>
@@ -37,7 +37,7 @@ function SessionMenu() {
         <NavItem to="/login">Iniciar sesión</NavItem>
         <NavLink
           to="/register"
-          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          className="whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
         >
           Registrarse
         </NavLink>
@@ -69,7 +69,7 @@ export function NavItem({ to, children }: { to: string; children: ReactNode }) {
       to={to}
       end
       className={({ isActive }) =>
-        `text-sm ${isActive ? 'font-semibold text-indigo-600' : 'text-slate-600 hover:text-slate-900'}`
+        `whitespace-nowrap text-sm ${isActive ? 'font-semibold text-indigo-600' : 'text-slate-600 hover:text-slate-900'}`
       }
     >
       {children}

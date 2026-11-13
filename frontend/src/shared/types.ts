@@ -26,3 +26,21 @@ export type AuthResult = {
   accessToken: string
   user: User
 }
+
+export type Category = {
+  id: string
+  name: string
+}
+
+/** Producto (backend/src/products/product.types.ts). */
+export type Product = {
+  id: string
+  name: string
+  description: string
+  imageUrl: string
+  /** Texto con 2 decimales (D45): se muestra con <Price>, nunca se opera. */
+  price: string
+  stock: number
+  active: boolean
+  category: Category
+}

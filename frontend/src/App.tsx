@@ -4,16 +4,18 @@ import { Route, Routes } from 'react-router'
 import { LoginPage } from './auth/LoginPage.tsx'
 import { RegisterPage } from './auth/RegisterPage.tsx'
 import { RequireAuth } from './auth/RequireAuth.tsx'
+import { CatalogPage } from './catalog/CatalogPage.tsx'
+import { ProductDetailPage } from './catalog/ProductDetailPage.tsx'
 import { ProfilePage } from './profile/ProfilePage.tsx'
 import { Layout } from './shared/components/Layout.tsx'
-import { HealthPage } from './shared/HealthPage.tsx'
 
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
         {/* Públicas */}
-        <Route index element={<HealthPage />} />
+        <Route index element={<CatalogPage />} />
+        <Route path="products/:id" element={<ProductDetailPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
 
