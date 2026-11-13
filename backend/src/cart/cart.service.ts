@@ -30,7 +30,24 @@ export class CartService {
   ) {}
 
   async getCart(userId: string): Promise<CartView> {
-    const items = await this.cart.findItems(userId);
+    return this.buildView(await this.cart.findItems(userId));
+  }
+
+  /**
+   * Cotiza un carrito que NO está guardado en el servidor (el del visitante
+   * sin sesión, que vive en su navegador, §4). Mismo cálculo que getCart:
+   * el servidor es la autoridad del precio también sin sesión (D68).
+   */
+  quote(items: CartItem[]): Promise<CartView> {
+    return this.buildView(items);
+  }
+
+  /**
+   * Arma la vista del carrito con precios ACTUALES: subtotales, avisos y
+   * total estimado (sin productos no disponibles). Única implementación,
+   * usada por el carrito guardado y por la cotización (DRY).
+   */
+  private async buildView(items: CartItem[]): Promise<CartView> {
     const products = await this.products.findByIds(
       items.map((item) => item.productId),
     );
@@ -39,7 +56,8 @@ export class CartService {
     const lines = items
       .flatMap((item) => {
         const product = byId.get(item.productId);
-        // Siempre existe (FK Restrict y soft delete); el filtro es por seguridad.
+        // Guardado: siempre existe (FK Restrict + soft delete). Cotización: un
+        // id inexistente enviado por el navegador simplemente se omite.
         return product ? [toLine(product, item.quantity)] : [];
       })
       .sort((a, b) => a.product.name.localeCompare(b.product.name));

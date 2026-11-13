@@ -129,4 +129,21 @@ describe('CartService', () => {
     const cart = await service.addItem('u', 'p-1', 9);
     expect(cart.items[0].quantity).toBe(99);
   });
+
+  it('cotiza un carrito anónimo con el mismo cálculo, sin tocar el repositorio (D68)', async () => {
+    const service = new CartService(
+      createFakeRepository({ 'p-1': 50 }),
+      products,
+    );
+    const quote = await service.quote([
+      { productId: 'p-2', quantity: 3 },
+      { productId: 'p-3', quantity: 1 },
+      { productId: 'no-existe', quantity: 1 },
+    ]);
+    expect(quote.items.map((l) => [l.product.name, l.warning])).toEqual([
+      ['Taza', 'INSUFFICIENT_STOCK'],
+      ['Teclado', 'UNAVAILABLE'],
+    ]);
+    expect(quote.total).toBe('0.30'); // el desactivado no suma; el inexistente se omite
+  });
 });

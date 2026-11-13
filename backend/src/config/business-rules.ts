@@ -30,6 +30,9 @@ export const PASSWORD_MIN_LENGTH = 8;
 /** §4: unidades máximas de un mismo producto en el carrito. */
 export const CART_MAX_QUANTITY_PER_ITEM = 99;
 
+/** D68: líneas máximas al cotizar un carrito anónimo (limita el costo de un endpoint público). */
+export const CART_QUOTE_MAX_LINES = 50;
+
 /** D41: elementos por página si el cliente no indica pageSize. */
 export const PAGE_SIZE_DEFAULT = 20;
 

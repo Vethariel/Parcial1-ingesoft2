@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ProductsModule } from '../products/products.module.js';
 import { SecurityModule } from '../security/security.module.js';
+import { CartQuoteController } from './cart-quote.controller.js';
 import { CART_REPOSITORY } from './cart.repository.js';
 import { CartController } from './cart.controller.js';
 import { CartService } from './cart.service.js';
@@ -10,7 +11,8 @@ import { PrismaCartRepository } from './prisma-cart.repository.js';
   // ProductsModule: leer productos (precio, stock, activo) vía ProductsService.
   // SecurityModule: guards (D36).
   imports: [ProductsModule, SecurityModule],
-  controllers: [CartController],
+  // Cliente (CUSTOMER) y cotización pública del carrito anónimo (D68).
+  controllers: [CartController, CartQuoteController],
   providers: [
     CartService,
     { provide: CART_REPOSITORY, useClass: PrismaCartRepository },
